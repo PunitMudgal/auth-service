@@ -1,0 +1,20 @@
+{
+  "name": "auth-service",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.32",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^2.0.12",
+    "@types/bun": "latest",
+    "@types/node": "^26.1.2",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^7.0.2"
+  }
+}
