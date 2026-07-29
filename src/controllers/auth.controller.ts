@@ -1,5 +1,6 @@
 import { Context } from "hono";
 import { AuthService } from "../services/auth.service";
+import type { RegisterBody } from "../config/register.schema";
 
 export class AuthController {
   private authService: AuthService;
@@ -8,8 +9,8 @@ export class AuthController {
     this.authService = authService;
   }
 
-  async register(c: Context) {
-    const { email, password, firstName, lastName } = await c.req.json();
+  async register(c: Context, body: RegisterBody) {
+    const { email, password, firstName, lastName } = body;
 
     const user = await this.authService.register({
       email,
