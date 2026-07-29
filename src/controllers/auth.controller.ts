@@ -10,6 +10,7 @@ export class AuthController {
 
     async register(c: Context){
         const {email, password, firstName, lastName} = await c.req.json()
+        
         const user = await this.authService.register({email, password, firstName, lastName});
         return c.json({
             success:true,

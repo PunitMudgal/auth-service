@@ -5,11 +5,12 @@ import { RegisterUser, User } from "../types";
 export class AuthService { 
 
     async register({email, password, firstName, lastName}: RegisterUser){
-        await db.insert(users).values({
+        const user = await db.insert(users).values({
             email,
-            password,
+            password,   
             firstName,
             lastName,
-        })
+        }).returning({firstName: users.firstName, lastName: users.lastName, email: users.email});
+        return user;
     }
 }
