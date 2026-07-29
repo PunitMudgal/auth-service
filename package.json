@@ -10,6 +10,7 @@
     "studio": "NODE_ENV=development drizzle-kit studio"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.32",
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@hono/node-server": "^2.0.12",
+    "@types/bcrypt": "^6.0.0",
     "@types/bun": "latest",
     "@types/node": "^26.1.2",
     "@types/pg": "^8.20.0",
