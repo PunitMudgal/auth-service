@@ -24,9 +24,11 @@ export class AuthService {
         lastName,
       })
       .returning({
+        id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
+        role: users.role,
       });
     return user;
   }

@@ -1,5 +1,4 @@
 import { users } from "./../db/schema";
-import { Context } from "hono";
 
 export interface RegisterUser {
   email: string;
@@ -9,3 +8,11 @@ export interface RegisterUser {
 }
 
 export type User = typeof users.$inferSelect;
+
+export interface JWTPayload {
+  sub: string;
+  email: string;
+  role: "admin" | "user";
+  iat?: number;
+  exp?: number;
+}
