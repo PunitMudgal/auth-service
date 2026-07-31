@@ -11,4 +11,8 @@ authRoutes.post("/register", validateBody(registerSchema), (c) =>
   authController.register(c, c.req.valid("json") as RegisterBody),
 );
 
+authRoutes.post("/refresh", (c) => authController.refresh(c));
+
+authRoutes.post("/logout", (c) => authController.logout(c));
+
 export default authRoutes;

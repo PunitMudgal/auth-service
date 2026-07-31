@@ -1,13 +1,20 @@
 import { Context } from "hono";
-import { setCookie } from "hono/cookie";
+import { getCookie } from "hono/cookie";
 import { AuthService } from "../services/auth.service";
 import type { RegisterBody } from "../config/register.schema";
 import {
   generateAccessToken,
   generateRefreshToken,
-  parseDurationToSeconds,
+  hashToken,
+  verifyRefreshToken,
 } from "../utils/jwt";
-import { Config } from "../config";
+import {
+  clearAuthCookies,
+  getDeviceInfo,
+  getRefreshExpiry,
+  setAuthCookies,
+} from "../utils/cookie";
+import { UnauthorizedError } from "../utils/errors";
 
 export class AuthController {
   private authService: AuthService;
@@ -19,7 +26,7 @@ export class AuthController {
   async register(c: Context, body: RegisterBody) {
     const { email, password, firstName, lastName } = body;
 
-    const [user] = await this.authService.register({
+    const user = await this.authService.register({
       email,
       password,
       firstName,
@@ -37,25 +44,19 @@ export class AuthController {
       generateRefreshToken(jwtPayload),
     ]);
 
-    const isProduction = process.env.NODE_ENV === "production";
+    const refreshTokenHash = await hashToken(refreshToken);
+    const { expiresAt } = getRefreshExpiry();
+    const { ipAddress, userAgent } = getDeviceInfo(c);
 
-    const baseCookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "Strict" as const,
-      path: "/",
-    };
-
-    setCookie(c, "access_token", accessToken, {
-      ...baseCookieOptions,
-      maxAge: parseDurationToSeconds(Config.jwt.accessExpiresIn),
+    await this.authService.persistRefreshToken({
+      userId: user.id,
+      tokenHash: refreshTokenHash,
+      expiresAt,
+      ipAddress,
+      userAgent,
     });
 
-    setCookie(c, "refresh_token", refreshToken, {
-      ...baseCookieOptions,
-      maxAge: parseDurationToSeconds(Config.jwt.refreshExpiresIn),
-      path: "/api/v1/auth", // only sent to auth endpoints
-    });
+    setAuthCookies(c, accessToken, refreshToken);
 
     return c.json(
       {
@@ -74,5 +75,64 @@ export class AuthController {
       },
       201,
     );
+  }
+
+  async logout(c: Context) {
+    const rawToken = getCookie(c, "refresh_token");
+
+    if (rawToken) {
+      const tokenHash = await hashToken(rawToken);
+      await this.authService.revokeRefreshTokenByHash(tokenHash);
+    }
+
+    clearAuthCookies(c);
+
+    return c.json({
+      success: true,
+      message: "Logged out successfully",
+      status: 200,
+    });
+  }
+
+  async refresh(c: Context) {
+    const rawToken = getCookie(c, "refresh_token");
+    if (!rawToken) {
+      throw new UnauthorizedError("Refresh token not provided");
+    }
+
+    const payload = await verifyRefreshToken(rawToken);
+    const oldTokenHash = await hashToken(rawToken);
+    const { expiresAt } = getRefreshExpiry();
+    const { ipAddress, userAgent } = getDeviceInfo(c);
+
+    const newRefreshToken = await generateRefreshToken({
+      sub: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    });
+    const newTokenHash = await hashToken(newRefreshToken);
+
+    await this.authService.rotateRefreshToken({
+      oldTokenHash,
+      newTokenHash,
+      userId: payload.sub,
+      expiresAt,
+      ipAddress,
+      userAgent,
+    });
+
+    const accessToken = await generateAccessToken({
+      sub: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    });
+
+    setAuthCookies(c, accessToken, newRefreshToken);
+
+    return c.json({
+      success: true,
+      message: "Token refreshed successfully",
+      status: 200,
+    });
   }
 }

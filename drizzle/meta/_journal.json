@@ -15,6 +15,13 @@
       "when": 1785288564642,
       "tag": "0001_eminent_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785391819413,
+      "tag": "0002_young_vampiro",
+      "breakpoints": true
     }
   ]
 }
