@@ -1,11 +1,4 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeAll,
-  beforeEach,
-  afterAll,
-} from "bun:test";
+import { describe, it, expect, beforeAll, beforeEach } from "bun:test";
 import app from "../index";
 import { db, pool } from "../db/connection";
 import { users } from "../db/schema";
@@ -20,10 +13,6 @@ describe("POST /api/v1/auth/register", () => {
   beforeEach(async () => {
     // Truncate users between tests
     await db.delete(users);
-  });
-
-  afterAll(async () => {
-    await pool.end();
   });
 
   describe("Given all fields", () => {
@@ -74,13 +63,13 @@ describe("POST /api/v1/auth/register", () => {
         success: true,
         message: "User registered successfully",
         data: {
-          user: [
-            {
-              firstName: userData.firstName,
-              lastName: userData.lastName,
-              email: userData.email,
-            },
-          ],
+          user: {
+            id: expect.any(String),
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            role: "user",
+          },
         },
         status: 201,
       });
