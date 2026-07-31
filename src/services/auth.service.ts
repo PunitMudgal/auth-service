@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "../db/connection";
 import { refreshTokens, users } from "../db/schema";
 import type { RegisterUser } from "../types";
@@ -7,6 +7,8 @@ import {
   ConflictError,
   UnauthorizedError,
 } from "../utils/errors";
+import { Config } from "../config";
+import { logger } from "../utils/logger";
 
 interface PersistRefreshTokenParams {
   userId: string;
@@ -27,6 +29,13 @@ interface RotateRefreshTokenParams {
   deviceName?: string;
 }
 
+interface RefreshableUser {
+  id: string;
+  email: string;
+  role: "admin" | "user";
+  isActive: boolean;
+}
+
 export class AuthService {
   async register({ email, password, firstName, lastName }: RegisterUser) {
     const existingUser = await db
@@ -36,7 +45,7 @@ export class AuthService {
     if (existingUser.length > 0) {
       throw new ConflictError("User already exists!");
     }
-    const hashedPassword = await bcrypt.hash(password, 3);
+    const hashedPassword = await bcrypt.hash(password, Config.auth.bcryptCost);
     const [user] = await db
       .insert(users)
       .values({
@@ -66,6 +75,27 @@ export class AuthService {
     });
   }
 
+  async getUserForRefresh(userId: string): Promise<RefreshableUser> {
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+        isActive: users.isActive,
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user) {
+      throw new UnauthorizedError("User account no longer exists");
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedError("User account is not allowed to authenticate");
+    }
+
+    return user;
+  }
 
   async getRefreshTokenByHashUnfiltered(tokenHash: string) {
     const [token] = await db
@@ -147,5 +177,24 @@ export class AuthService {
       userAgent: params.userAgent,
       deviceName: params.deviceName,
     });
+  }
+
+  async cleanupRefreshTokens() {
+    try {
+      const revokedCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      await db
+        .delete(refreshTokens)
+        .where(
+          or(
+            lt(refreshTokens.expiresAt, new Date()),
+            and(
+              isNotNull(refreshTokens.revokedAt),
+              lt(refreshTokens.revokedAt, revokedCutoff),
+            ),
+          ),
+        );
+    } catch (error) {
+      logger.warn({ error }, "Refresh token cleanup failed");
+    }
   }
 }

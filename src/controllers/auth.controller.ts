@@ -33,15 +33,15 @@ export class AuthController {
       lastName,
     });
 
-    const jwtPayload = {
+    const authPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
-      generateAccessToken(jwtPayload),
-      generateRefreshToken(jwtPayload),
+      generateAccessToken(authPayload),
+      generateRefreshToken(authPayload),
     ]);
 
     const refreshTokenHash = await hashToken(refreshToken);
@@ -85,6 +85,8 @@ export class AuthController {
       await this.authService.revokeRefreshTokenByHash(tokenHash);
     }
 
+    void this.authService.cleanupRefreshTokens();
+
     clearAuthCookies(c);
 
     return c.json({
@@ -102,32 +104,53 @@ export class AuthController {
 
     const payload = await verifyRefreshToken(rawToken);
     const oldTokenHash = await hashToken(rawToken);
+    const existingToken =
+      await this.authService.getRefreshTokenByHashUnfiltered(oldTokenHash);
+
+    if (!existingToken) {
+      throw new UnauthorizedError("Invalid refresh token");
+    }
+
+    if (existingToken.revokedAt) {
+      await this.authService.revokeAllUserRefreshTokens(existingToken.userId);
+      throw new UnauthorizedError(
+        "Refresh token reused — all sessions terminated for security",
+      );
+    }
+
+    if (existingToken.expiresAt < new Date()) {
+      throw new UnauthorizedError("Refresh token has expired");
+    }
+
+    const user = await this.authService.getUserForRefresh(payload.sub);
     const { expiresAt } = getRefreshExpiry();
     const { ipAddress, userAgent } = getDeviceInfo(c);
 
     const newRefreshToken = await generateRefreshToken({
-      sub: payload.sub,
-      email: payload.email,
-      role: payload.role,
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     });
     const newTokenHash = await hashToken(newRefreshToken);
 
     await this.authService.rotateRefreshToken({
       oldTokenHash,
       newTokenHash,
-      userId: payload.sub,
+      userId: user.id,
       expiresAt,
       ipAddress,
       userAgent,
     });
 
     const accessToken = await generateAccessToken({
-      sub: payload.sub,
-      email: payload.email,
-      role: payload.role,
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     });
 
     setAuthCookies(c, accessToken, newRefreshToken);
+
+    void this.authService.cleanupRefreshTokens();
 
     return c.json({
       success: true,
