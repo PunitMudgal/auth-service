@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "../db/connection";
 import { refreshTokens, users } from "../db/schema";
-import type { RegisterUser } from "../types";
+import type { LoginUser, RegisterUser } from "../types";
 import * as bcrypt from "bcrypt";
 import {
   ConflictError,
@@ -62,6 +62,34 @@ export class AuthService {
         role: users.role,
       });
     return user;
+  }
+
+  async login({ email, password }: LoginUser) {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+
+    if (!user) {
+      throw new UnauthorizedError("Invalid email or password");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedError("Invalid email or password");
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedError("User account is not allowed to authenticate");
+    }
+
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+    };
   }
 
   async persistRefreshToken(params: PersistRefreshTokenParams) {

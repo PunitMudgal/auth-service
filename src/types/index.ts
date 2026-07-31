@@ -7,6 +7,11 @@ export interface RegisterUser {
   lastName: string;
 }
 
+export interface LoginUser {
+  email: string;
+  password: string;
+}
+
 export type User = typeof users.$inferSelect;
 
 export interface JWTPayload {

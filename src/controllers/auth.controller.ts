@@ -1,6 +1,7 @@
 import { Context } from "hono";
 import { getCookie } from "hono/cookie";
 import { AuthService } from "../services/auth.service";
+import type { LoginBody } from "../config/login.schema";
 import type { RegisterBody } from "../config/register.schema";
 import {
   generateAccessToken,
@@ -74,6 +75,55 @@ export class AuthController {
         status: 201,
       },
       201,
+    );
+  }
+
+  async login(c: Context, body: LoginBody) {
+    const { email, password } = body;
+
+    const user = await this.authService.login({ email, password });
+
+    const authPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      generateAccessToken(authPayload),
+      generateRefreshToken(authPayload),
+    ]);
+
+    const refreshTokenHash = await hashToken(refreshToken);
+    const { expiresAt } = getRefreshExpiry();
+    const { ipAddress, userAgent } = getDeviceInfo(c);
+
+    await this.authService.persistRefreshToken({
+      userId: user.id,
+      tokenHash: refreshTokenHash,
+      expiresAt,
+      ipAddress,
+      userAgent,
+    });
+
+    setAuthCookies(c, accessToken, refreshToken);
+
+    return c.json(
+      {
+        success: true,
+        message: "Login successful",
+        data: {
+          user: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+          },
+        },
+        status: 200,
+      },
+      200,
     );
   }
 
