@@ -97,4 +97,48 @@ describe("POST /api/v1/auth/register", () => {
       expect(user?.[0]?.firstName).toBe(userData.firstName);
     });
   });
+
+  describe("Given missing fields", () => {
+    it("should return 400 when email is missing", async () => {
+      // Act
+      const response = await app.request("/api/v1/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName: "Punit",
+          lastName: "sharma",
+          password: "its@secret",
+        }),
+      });
+
+      // Assert
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.status).toBe(400);
+    });
+
+    it("should return 400 when password is missing", async () => {
+      // Act
+      const response = await app.request("/api/v1/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName: "Punit",
+          lastName: "sharma",
+          email: "punit@gmail.com",
+        }),
+      });
+
+      // Assert
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.status).toBe(400);
+    });
+  });
 });

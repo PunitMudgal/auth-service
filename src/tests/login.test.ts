@@ -233,5 +233,41 @@ describe("POST /api/v1/auth/login", () => {
       const data = await response.json();
       expect(data.success).toBe(false);
     });
+
+    it("should return 400 when email is missing", async () => {
+      // Act
+      const response = await app.request("/api/v1/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: "its@secret",
+        }),
+      });
+
+      // Assert
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.status).toBe(400);
+    });
+
+    it("should return 400 when the request body is empty", async () => {
+      // Act
+      const response = await app.request("/api/v1/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+
+      // Assert
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.status).toBe(400);
+    });
   });
 });
