@@ -8,12 +8,29 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 
+export const tenants = pgTable(
+  "tenants",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [unique("name_unique").on(table.name)],
+);
+
 export const users = pgTable(
   "users",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
     firstName: varchar("first_name", { length: 100 }).notNull(),
     lastName: varchar("last_name", { length: 100 }),
     email: varchar("email", { length: 255 }).notNull().unique(),
@@ -49,7 +66,15 @@ export const refreshTokens = pgTable(
   (table) => [unique("token_hash_unique").on(table.tokenHash)],
 );
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const tenantsRelations = relations(tenants, ({ many }) => ({
+  users: many(users),
+}));
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [users.tenantId],
+    references: [tenants.id],
+  }),
   refreshTokens: many(refreshTokens),
 }));
 
