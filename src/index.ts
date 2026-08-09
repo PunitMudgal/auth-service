@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { logger as honoLogger } from "hono/logger";
 import authRoutes from "./routes/auth.route";
 import { logger } from "./utils/logger";
+import tenantRoutes from "./routes/tenant.route";
 
 const app = new Hono().basePath("/api/v1");
 
@@ -13,6 +14,7 @@ app.get("/", (c) => {
 
 // routes
 app.route("/auth", authRoutes);
+app.route("/tenant", tenantRoutes);
 
 // global error handler
 app.onError((err, c) => {
