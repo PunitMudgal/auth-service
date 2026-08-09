@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const registerSchema = z.object({
+export const createUserSchema = z.object({
   email: z.string().trim().toLowerCase().email("Invalid email address"),
   password: z
     .string()
@@ -14,7 +14,10 @@ export const registerSchema = z.object({
   lastName: z
     .string()
     .trim()
-    .max(100, { message: "Last name must be at most 100 characters long" }),
+    .max(100, { message: "Last name must be at most 100 characters long" })
+    .optional(),
+  tenantId: z.string().trim().min(1, "Tenant ID is required"),
+  role: z.enum(["admin", "manager", "user"]).optional().default("user"),
 });
 
-export type RegisterBody = z.infer<typeof registerSchema>;
+export type CreateUserBody = z.infer<typeof createUserSchema>;

@@ -4,6 +4,7 @@ import { logger as honoLogger } from "hono/logger";
 import authRoutes from "./routes/auth.route";
 import { logger } from "./utils/logger";
 import tenantRoutes from "./routes/tenant.route";
+import userRoutes from "./routes/user.route";
 
 const app = new Hono().basePath("/api/v1");
 
@@ -15,6 +16,7 @@ app.get("/", (c) => {
 // routes
 app.route("/auth", authRoutes);
 app.route("/tenant", tenantRoutes);
+app.route("/users", userRoutes);
 
 // global error handler
 app.onError((err, c) => {

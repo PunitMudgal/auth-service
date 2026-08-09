@@ -1,11 +1,10 @@
 import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "../db/connection";
-import { refreshTokens, tenants, users } from "../db/schema";
+import { refreshTokens, users } from "../db/schema";
 import type { LoginUser, RegisterUser } from "../types";
 import * as bcrypt from "bcrypt";
 import {
   ConflictError,
-  NotFoundError,
   UnauthorizedError,
 } from "../utils/errors";
 import { Config } from "../config";
@@ -33,26 +32,12 @@ interface RotateRefreshTokenParams {
 interface RefreshableUser {
   id: string;
   email: string;
-  role: "admin" | "user";
+  role: "admin" | "manager" | "user";
   isActive: boolean;
 }
 
 export class AuthService {
-  async register({
-    email,
-    password,
-    firstName,
-    lastName,
-    tenantId,
-  }: RegisterUser) {
-    const [tenant] = await db
-      .select({ id: tenants.id })
-      .from(tenants)
-      .where(eq(tenants.id, tenantId));
-    if (!tenant) {
-      throw new NotFoundError("Tenant not found");
-    }
-
+  async register({ email, password, firstName, lastName }: RegisterUser) {
     const existingUser = await db
       .select()
       .from(users)
@@ -68,7 +53,6 @@ export class AuthService {
         password: hashedPassword,
         firstName,
         lastName,
-        tenantId,
       })
       .returning({
         id: users.id,

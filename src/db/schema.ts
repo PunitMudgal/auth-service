@@ -28,9 +28,9 @@ export const users = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    tenantId: text("tenant_id")
-      .notNull()
-      .references(() => tenants.id, { onDelete: "cascade" }),
+    tenantId: text("tenant_id").references(() => tenants.id, {
+      onDelete: "cascade",
+    }),
     firstName: varchar("first_name", { length: 100 }).notNull(),
     lastName: varchar("last_name", { length: 100 }),
     email: varchar("email", { length: 255 }).notNull().unique(),
