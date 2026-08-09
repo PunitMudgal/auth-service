@@ -18,4 +18,29 @@ tenantRoutes.post(
     tenantController.createTenant(c, c.req.valid("json") as TenantBody),
 );
 
+tenantRoutes.get("/", authenticate, canAccess("admin"), (c) =>
+  tenantController.getTenants(c),
+);
+
+tenantRoutes.get("/:id", authenticate, canAccess("admin"), (c) =>
+  tenantController.getTenantById(c, c.req.param("id")),
+);
+
+tenantRoutes.put(
+  "/:id",
+  authenticate,
+  canAccess("admin"),
+  validateBody(tenantSchema),
+  (c) =>
+    tenantController.updateTenant(
+      c,
+      c.req.param("id"),
+      c.req.valid("json") as TenantBody,
+    ),
+);
+
+tenantRoutes.delete("/:id", authenticate, canAccess("admin"), (c) =>
+  tenantController.deleteTenant(c, c.req.param("id")),
+);
+
 export default tenantRoutes;
