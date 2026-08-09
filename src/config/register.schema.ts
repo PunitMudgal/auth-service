@@ -15,6 +15,7 @@ export const registerSchema = z.object({
     .string()
     .trim()
     .max(100, { message: "Last name must be at most 100 characters long" }),
+  tenantId: z.string().trim().min(1, "Tenant ID is required"),
 });
 
 export type RegisterBody = z.infer<typeof registerSchema>;

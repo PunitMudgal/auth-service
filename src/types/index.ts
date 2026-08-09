@@ -5,6 +5,7 @@ export interface RegisterUser {
   password: string;
   firstName: string;
   lastName: string;
+  tenantId: string;
 }
 
 export interface LoginUser {

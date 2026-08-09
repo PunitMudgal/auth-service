@@ -1,10 +1,11 @@
 import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "../db/connection";
-import { refreshTokens, users } from "../db/schema";
+import { refreshTokens, tenants, users } from "../db/schema";
 import type { LoginUser, RegisterUser } from "../types";
 import * as bcrypt from "bcrypt";
 import {
   ConflictError,
+  NotFoundError,
   UnauthorizedError,
 } from "../utils/errors";
 import { Config } from "../config";
@@ -37,7 +38,21 @@ interface RefreshableUser {
 }
 
 export class AuthService {
-  async register({ email, password, firstName, lastName }: RegisterUser) {
+  async register({
+    email,
+    password,
+    firstName,
+    lastName,
+    tenantId,
+  }: RegisterUser) {
+    const [tenant] = await db
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId));
+    if (!tenant) {
+      throw new NotFoundError("Tenant not found");
+    }
+
     const existingUser = await db
       .select()
       .from(users)
@@ -53,9 +68,11 @@ export class AuthService {
         password: hashedPassword,
         firstName,
         lastName,
+        tenantId,
       })
       .returning({
         id: users.id,
+        tenantId: users.tenantId,
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
@@ -85,6 +102,7 @@ export class AuthService {
 
     return {
       id: user.id,
+      tenantId: user.tenantId,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,

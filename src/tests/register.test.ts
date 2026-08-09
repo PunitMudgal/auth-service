@@ -1,31 +1,49 @@
 import { describe, it, expect, beforeAll, beforeEach } from "bun:test";
 import app from "../index";
 import { db, pool } from "../db/connection";
-import { users } from "../db/schema";
+import { tenants, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 
+async function createTestTenant() {
+  const [tenant] = await db
+    .insert(tenants)
+    .values({
+      name: `tenant-${crypto.randomUUID()}`,
+      description: "Test tenant",
+    })
+    .returning({ id: tenants.id });
+
+  if (!tenant) {
+    throw new Error("Failed to create test tenant");
+  }
+
+  return tenant;
+}
+
 describe("POST /api/v1/auth/register", () => {
+  let tenantId: string;
+
   beforeAll(async () => {
-    // Ensure DB is reachable (pool is created on import)
     await pool.query("SELECT 1");
   });
 
   beforeEach(async () => {
-    // Truncate users between tests
     await db.delete(users);
+    await db.delete(tenants);
+    const tenant = await createTestTenant();
+    tenantId = tenant.id;
   });
 
   describe("Given all fields", () => {
     it("should return the 201 status code", async () => {
-      // Arrange
       const userData = {
         firstName: "Punit",
         lastName: "sharma",
         email: "punit@gmail.com",
         password: "its@secret",
+        tenantId,
       };
 
-      // Act — Hono equivalent of supertest(app).post(...).send(...)
       const response = await app.request("/api/v1/auth/register", {
         method: "POST",
         headers: {
@@ -34,7 +52,6 @@ describe("POST /api/v1/auth/register", () => {
         body: JSON.stringify(userData),
       });
 
-      // Assert
       expect(response.status).toBe(201);
       const data = await response.json();
       expect(data.success).toBe(true);
@@ -47,6 +64,7 @@ describe("POST /api/v1/auth/register", () => {
         lastName: "sharma",
         email: "punit@gmail.com",
         password: "its@secret",
+        tenantId,
       };
 
       const response = await app.request("/api/v1/auth/register", {
@@ -65,6 +83,7 @@ describe("POST /api/v1/auth/register", () => {
         data: {
           user: {
             id: expect.any(String),
+            tenantId,
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
@@ -81,8 +100,9 @@ describe("POST /api/v1/auth/register", () => {
         lastName: "sharma",
         email: "punit@gmail.com",
         password: "its@secret",
+        tenantId,
       };
-      const response = await app.request("/api/v1/auth/register", {
+      await app.request("/api/v1/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -95,12 +115,12 @@ describe("POST /api/v1/auth/register", () => {
         .where(eq(users.email, userData.email));
       expect(user).toBeDefined();
       expect(user?.[0]?.firstName).toBe(userData.firstName);
+      expect(user?.[0]?.tenantId).toBe(tenantId);
     });
   });
 
   describe("Given missing fields", () => {
     it("should return 400 when email is missing", async () => {
-      // Act
       const response = await app.request("/api/v1/auth/register", {
         method: "POST",
         headers: {
@@ -110,10 +130,10 @@ describe("POST /api/v1/auth/register", () => {
           firstName: "Punit",
           lastName: "sharma",
           password: "its@secret",
+          tenantId,
         }),
       });
 
-      // Assert
       expect(response.status).toBe(400);
       const data = await response.json();
       expect(data.success).toBe(false);
@@ -121,7 +141,6 @@ describe("POST /api/v1/auth/register", () => {
     });
 
     it("should return 400 when password is missing", async () => {
-      // Act
       const response = await app.request("/api/v1/auth/register", {
         method: "POST",
         headers: {
@@ -131,10 +150,30 @@ describe("POST /api/v1/auth/register", () => {
           firstName: "Punit",
           lastName: "sharma",
           email: "punit@gmail.com",
+          tenantId,
         }),
       });
 
-      // Assert
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.status).toBe(400);
+    });
+
+    it("should return 400 when tenantId is missing", async () => {
+      const response = await app.request("/api/v1/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName: "Punit",
+          lastName: "sharma",
+          email: "punit@gmail.com",
+          password: "its@secret",
+        }),
+      });
+
       expect(response.status).toBe(400);
       const data = await response.json();
       expect(data.success).toBe(false);

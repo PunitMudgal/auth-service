@@ -25,13 +25,14 @@ export class AuthController {
   }
 
   async register(c: Context, body: RegisterBody) {
-    const { email, password, firstName, lastName } = body;
+    const { email, password, firstName, lastName, tenantId } = body;
 
     const user = await this.authService.register({
       email,
       password,
       firstName,
       lastName,
+      tenantId,
     });
 
     const authPayload = {
@@ -66,6 +67,7 @@ export class AuthController {
         data: {
           user: {
             id: user.id,
+            tenantId: user.tenantId,
             firstName: user.firstName,
             lastName: user.lastName,
             email: user.email,
@@ -115,10 +117,7 @@ export class AuthController {
         data: {
           user: {
             id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            role: user.role,
+            tenantId: user.tenantId,
           },
         },
         status: 200,
