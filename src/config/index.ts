@@ -24,7 +24,7 @@ function parseInteger(value: string | undefined, fallback: number) {
 }
 
 export const Config = {
-  port: PORT || 3000,
+  port: parseInteger(PORT, 3000),
   databaseUrl: DATABASE_URL,
   jwt: {
     accessSecret: JWT_ACCESS_SECRET!,

@@ -1,16 +1,25 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger as honoLogger } from "hono/logger";
+import { Config } from "./config";
 import authRoutes from "./routes/auth.route";
-import { logger } from "./utils/logger";
 import tenantRoutes from "./routes/tenant.route";
 import userRoutes from "./routes/user.route";
+import { logger } from "./utils/logger";
 
 const app = new Hono().basePath("/api/v1");
 
 app.use("*", honoLogger());
+app.use(
+  "*",
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.get("/", (c) => {
-  return c.text("Hello Hono!");
+  return c.text("Welcome to the Auth Service API", { status: 200 });
 });
 
 // routes
@@ -47,3 +56,11 @@ app.onError((err, c) => {
 });
 
 export default app;
+
+if (import.meta.main) {
+  Bun.serve({
+    fetch: app.fetch,
+    port: Config.port,
+  });
+  logger.info(`Server is running on http://localhost:${Config.port}`);
+}

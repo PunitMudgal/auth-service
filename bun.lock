@@ -5,6 +5,7 @@
     "": {
       "name": "auth-service",
       "dependencies": {
+        "@hono/node-server": "^2.0.12",
         "bcrypt": "^6.0.0",
         "dotenv": "^17.4.2",
         "drizzle-orm": "^0.45.2",
@@ -14,7 +15,6 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
-        "@hono/node-server": "^2.0.12",
         "@types/bcrypt": "^6.0.0",
         "@types/bun": "latest",
         "@types/node": "^26.1.2",
