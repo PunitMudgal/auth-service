@@ -26,7 +26,7 @@ userRoutes.get("/email/:email", authenticate, canAccess("admin"), (c) =>
   userController.getUserByEmail(c, c.req.param("email")),
 );
 
-userRoutes.get("/:id", authenticate, canAccess("admin"), (c) =>
+userRoutes.get("/:id", authenticate, canAccess("admin", { allowSelf: true }), (c) =>
   userController.getUserById(c, c.req.param("id")),
 );
 
