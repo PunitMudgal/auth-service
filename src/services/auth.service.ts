@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "../db/connection";
 import { refreshTokens, users } from "../db/schema";
-import type { LoginUser, RegisterUser } from "../types";
+import type { LoginUser, RegisterUser, UserRole } from "../types";
 import * as bcrypt from "bcrypt";
 import {
   ConflictError,
@@ -32,7 +32,7 @@ interface RotateRefreshTokenParams {
 interface RefreshableUser {
   id: string;
   email: string;
-  role: "admin" | "manager" | "user";
+  role: UserRole;
   isActive: boolean;
 }
 

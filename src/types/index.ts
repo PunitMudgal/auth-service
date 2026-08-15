@@ -7,13 +7,15 @@ export interface RegisterUser {
   lastName: string;
 }
 
+export type UserRole = "admin" | "staff" | "customer";
+
 export interface CreateUser {
   email: string;
   password: string;
   firstName: string;
   lastName?: string;
   tenantId: string;
-  role?: "admin" | "manager" | "user";
+  role?: UserRole;
 }
 
 export interface LoginUser {
@@ -26,7 +28,7 @@ export type User = typeof users.$inferSelect;
 export interface JWTPayload {
   sub: string;
   email: string;
-  role: "admin" | "manager" | "user";
+  role: UserRole;
   iat?: number;
   exp?: number;
 }

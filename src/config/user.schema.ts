@@ -17,7 +17,7 @@ export const createUserSchema = z.object({
     .max(100, { message: "Last name must be at most 100 characters long" })
     .optional(),
   tenantId: z.string().trim().min(1, "Tenant ID is required"),
-  role: z.enum(["admin", "manager", "user"]).optional().default("user"),
+  role: z.enum(["admin", "staff", "customer"]).optional().default("customer"),
 });
 
 export type CreateUserBody = z.infer<typeof createUserSchema>;

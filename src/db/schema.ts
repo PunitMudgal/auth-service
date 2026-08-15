@@ -36,9 +36,9 @@ export const users = pgTable(
     email: varchar("email", { length: 255 }).notNull().unique(),
     password: varchar("password", { length: 255 }).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
-    role: text("role", { enum: ["admin", "manager", "user"] })
+    role: text("role", { enum: ["admin", "staff", "customer"] })
       .notNull()
-      .default("user"),
+      .default("customer"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },

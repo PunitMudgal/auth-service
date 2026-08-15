@@ -44,7 +44,7 @@ async function insertTestUser(
       lastName: "sharma",
       email: `user-${crypto.randomUUID()}@gmail.com`,
       password: hashedPassword,
-      role: "user",
+      role: "customer",
       ...rest,
     })
     .returning({
@@ -63,7 +63,7 @@ async function insertTestUser(
 async function authHeaderFor(user: {
   id: string;
   email: string;
-  role: "admin" | "manager" | "user";
+  role: "admin" | "staff" | "customer";
 }) {
   const token = await generateAccessToken({
     sub: user.id,
@@ -93,7 +93,7 @@ describe.serial("Tenants API", () => {
     });
     const regularUser = await insertTestUser({
       email: "member@gmail.com",
-      role: "user",
+      role: "customer",
       tenantId: tenant.id,
     });
 

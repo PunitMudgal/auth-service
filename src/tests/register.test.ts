@@ -63,7 +63,7 @@ describe("POST /api/v1/auth/register", () => {
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
-            role: "user",
+            role: "customer",
           },
         },
         status: 201,

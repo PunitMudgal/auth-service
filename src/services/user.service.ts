@@ -25,7 +25,7 @@ export class UserService {
     firstName,
     lastName,
     tenantId,
-    role = "user",
+    role = "customer",
   }: CreateUser) {
     const [tenant] = await db
       .select({ id: tenants.id })

@@ -36,7 +36,7 @@ async function insertTestUser(
       lastName: "sharma",
       email: `user-${crypto.randomUUID()}@gmail.com`,
       password: hashedPassword,
-      role: "user",
+      role: "customer",
       ...rest,
     })
     .returning({
@@ -56,7 +56,7 @@ async function insertTestUser(
 }
 
 async function authHeaderFor(
-  user: { id: string; email: string; role: "admin" | "manager" | "user" },
+  user: { id: string; email: string; role: "admin" | "staff" | "customer" },
 ) {
   const token = await generateAccessToken({
     sub: user.id,
@@ -66,7 +66,7 @@ async function authHeaderFor(
   return { Authorization: `Bearer ${token}` };
 }
 
-describe("Users API", () => {
+describe.serial("Users API", () => {
   let tenantId: string;
   let adminHeaders: Record<string, string>;
   let userHeaders: Record<string, string>;
@@ -89,7 +89,7 @@ describe("Users API", () => {
     });
     const regularUser = await insertTestUser({
       email: "member@gmail.com",
-      role: "user",
+      role: "customer",
       tenantId,
     });
 
@@ -97,7 +97,7 @@ describe("Users API", () => {
     userHeaders = await authHeaderFor(regularUser);
   });
 
-  describe("POST /api/v1/users", () => {
+  describe("POST /api/v1/user", () => {
     it("should create a user when admin provides valid data", async () => {
       const payload = {
         firstName: "New",
@@ -105,10 +105,10 @@ describe("Users API", () => {
         email: "newuser@gmail.com",
         password: "its@secret",
         tenantId,
-        role: "user",
+        role: "customer",
       };
 
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -129,7 +129,7 @@ describe("Users API", () => {
             firstName: payload.firstName,
             lastName: payload.lastName,
             email: payload.email,
-            role: "user",
+            role: "customer",
             isActive: true,
             createdAt: expect.any(String),
             updatedAt: expect.any(String),
@@ -140,8 +140,8 @@ describe("Users API", () => {
       expect(data.data.user.password).toBeUndefined();
     });
 
-    it("should default role to user when role is omitted", async () => {
-      const response = await app.request("/api/v1/users", {
+    it("should default role to customer when role is omitted", async () => {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -158,11 +158,11 @@ describe("Users API", () => {
 
       expect(response.status).toBe(201);
       const data = await response.json();
-      expect(data.data.user.role).toBe("user");
+      expect(data.data.user.role).toBe("customer");
     });
 
     it("should return 401 when no access token is provided", async () => {
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -181,8 +181,8 @@ describe("Users API", () => {
       expect(data.success).toBe(false);
     });
 
-    it("should return 403 when a non-admin tries to create a user", async () => {
-      const response = await app.request("/api/v1/users", {
+    it("should return 403 when a non-admin/customer tries to create a user", async () => {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -203,7 +203,7 @@ describe("Users API", () => {
     });
 
     it("should return 400 when tenantId is missing", async () => {
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -224,7 +224,7 @@ describe("Users API", () => {
     });
 
     it("should return 400 when email is missing", async () => {
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -244,7 +244,7 @@ describe("Users API", () => {
     });
 
     it("should return 404 when tenant does not exist", async () => {
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -266,7 +266,7 @@ describe("Users API", () => {
     });
 
     it("should return 409 when email already exists", async () => {
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -288,9 +288,9 @@ describe("Users API", () => {
     });
   });
 
-  describe("GET /api/v1/users", () => {
+  describe("GET /api/v1/user", () => {
     it("should return all users for an admin", async () => {
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "GET",
         headers: adminHeaders,
       });
@@ -306,15 +306,15 @@ describe("Users API", () => {
     });
 
     it("should return 401 when no access token is provided", async () => {
-      const response = await app.request("/api/v1/users", {
+      const response = await app.request("/api/v1/user", {
         method: "GET",
       });
 
       expect(response.status).toBe(401);
     });
 
-    it("should return 403 for a non-admin user", async () => {
-      const response = await app.request("/api/v1/users", {
+    it("should return 403 for a non-admin/customer user", async () => {
+      const response = await app.request("/api/v1/user", {
         method: "GET",
         headers: userHeaders,
       });
@@ -323,7 +323,7 @@ describe("Users API", () => {
     });
   });
 
-  describe("GET /api/v1/users/:id", () => {
+  describe("GET /api/v1/user/:id", () => {
     it("should return a user by id", async () => {
       const created = await insertTestUser({
         email: "byid@gmail.com",
@@ -331,7 +331,7 @@ describe("Users API", () => {
         firstName: "ById",
       });
 
-      const response = await app.request(`/api/v1/users/${created.id}`, {
+      const response = await app.request(`/api/v1/user/${created.id}`, {
         method: "GET",
         headers: adminHeaders,
       });
@@ -347,7 +347,7 @@ describe("Users API", () => {
           firstName: "ById",
           lastName: "sharma",
           email: "byid@gmail.com",
-          role: "user",
+          role: "customer",
           isActive: true,
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
@@ -358,7 +358,7 @@ describe("Users API", () => {
 
     it("should return 404 when user id does not exist", async () => {
       const response = await app.request(
-        `/api/v1/users/${crypto.randomUUID()}`,
+        `/api/v1/user/${crypto.randomUUID()}`,
         {
           method: "GET",
           headers: adminHeaders,
@@ -370,13 +370,13 @@ describe("Users API", () => {
       expect(data.message).toBe("User not found");
     });
 
-    it("should return 403 for a non-admin user", async () => {
+    it("should return 403 for a non-admin/customer user", async () => {
       const created = await insertTestUser({
         email: "forbidden-id@gmail.com",
         tenantId,
       });
 
-      const response = await app.request(`/api/v1/users/${created.id}`, {
+      const response = await app.request(`/api/v1/user/${created.id}`, {
         method: "GET",
         headers: userHeaders,
       });
@@ -385,7 +385,7 @@ describe("Users API", () => {
     });
   });
 
-  describe("GET /api/v1/users/email/:email", () => {
+  describe("GET /api/v1/user/email/:email", () => {
     it("should return a user by email", async () => {
       await insertTestUser({
         email: "byemail@gmail.com",
@@ -394,7 +394,7 @@ describe("Users API", () => {
       });
 
       const response = await app.request(
-        "/api/v1/users/email/byemail@gmail.com",
+        "/api/v1/user/email/byemail@gmail.com",
         {
           method: "GET",
           headers: adminHeaders,
@@ -411,7 +411,7 @@ describe("Users API", () => {
 
     it("should return 404 when email does not exist", async () => {
       const response = await app.request(
-        "/api/v1/users/email/missing@gmail.com",
+        "/api/v1/user/email/missing@gmail.com",
         {
           method: "GET",
           headers: adminHeaders,
@@ -423,9 +423,9 @@ describe("Users API", () => {
       expect(data.message).toBe("User not found");
     });
 
-    it("should return 403 for a non-admin user", async () => {
+    it("should return 403 for a non-admin/customer user", async () => {
       const response = await app.request(
-        "/api/v1/users/email/admin@gmail.com",
+        "/api/v1/user/email/admin@gmail.com",
         {
           method: "GET",
           headers: userHeaders,
