@@ -35,6 +35,20 @@ export class UserController {
     );
   }
 
+  async getSelf(c: Context) {
+    const { sub } = c.get("user");
+    const user = await this.userService.getUserById(sub);
+    return c.json(
+      {
+        success: true,
+        message: "User fetched successfully",
+        data: user,
+        status: 200,
+      },
+      200,
+    );
+  }
+
   async getUserById(c: Context, id: string) {
     const user = await this.userService.getUserById(id);
     return c.json(

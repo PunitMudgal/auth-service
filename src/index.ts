@@ -25,7 +25,7 @@ app.get("/", (c) => {
 // routes
 app.route("/auth", authRoutes);
 app.route("/tenant", tenantRoutes);
-app.route("/users", userRoutes);
+app.route("/user", userRoutes);
 
 // global error handler
 app.onError((err, c) => {

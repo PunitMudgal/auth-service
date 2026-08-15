@@ -14,20 +14,24 @@ userRoutes.post(
   authenticate,
   canAccess("admin"),
   validateBody(createUserSchema),
-  (c) =>
-    userController.createUser(c, c.req.valid("json") as CreateUserBody),
+  (c) => userController.createUser(c, c.req.valid("json") as CreateUserBody),
 );
 
 userRoutes.get("/", authenticate, canAccess("admin"), (c) =>
   userController.getUsers(c),
 );
 
+userRoutes.get("/self", authenticate, (c) => userController.getSelf(c));
+
 userRoutes.get("/email/:email", authenticate, canAccess("admin"), (c) =>
   userController.getUserByEmail(c, c.req.param("email")),
 );
 
-userRoutes.get("/:id", authenticate, canAccess("admin", { allowSelf: true }), (c) =>
-  userController.getUserById(c, c.req.param("id")),
+userRoutes.get(
+  "/:id",
+  authenticate,
+  canAccess("admin", { allowSelf: true }),
+  (c) => userController.getUserById(c, c.req.param("id")),
 );
 
 export default userRoutes;
