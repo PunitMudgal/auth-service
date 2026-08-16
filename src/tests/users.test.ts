@@ -71,6 +71,7 @@ describe.serial("Users API", () => {
   let tenantId: string;
   let adminHeaders: Record<string, string>;
   let userHeaders: Record<string, string>;
+  let managerHeaders: Record<string, string>;
 
   beforeAll(async () => {
     await pool.query("SELECT 1");
@@ -93,9 +94,15 @@ describe.serial("Users API", () => {
       role: "customer",
       tenantId,
     });
+    const managerUser = await insertTestUser({
+      email: "manager@gmail.com",
+      role: "manager",
+      tenantId,
+    });
 
     adminHeaders = await authHeaderFor(admin);
     userHeaders = await authHeaderFor(regularUser);
+    managerHeaders = await authHeaderFor(managerUser);
   });
 
   describe("POST /api/v1/user", () => {
@@ -160,6 +167,28 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(201);
       const data = await response.json();
       expect(data.data.user.role).toBe("customer");
+    });
+
+    it("should create a user with manager role when admin provides valid data", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "Manager",
+          lastName: "User",
+          email: "managerrole@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "manager",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const data = await response.json();
+      expect(data.data.user.role).toBe("manager");
     });
 
     it("should return 401 when no access token is provided", async () => {
@@ -300,7 +329,7 @@ describe.serial("Users API", () => {
       const data = await response.json();
       expect(data.success).toBe(true);
       expect(data.message).toBe("Users fetched successfully");
-      expect(data.data).toHaveLength(2);
+      expect(data.data).toHaveLength(3);
       expect(data.data.every((user: { password?: string }) => !user.password)).toBe(
         true,
       );
@@ -318,6 +347,15 @@ describe.serial("Users API", () => {
       const response = await app.request("/api/v1/user", {
         method: "GET",
         headers: userHeaders,
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 for a manager user", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "GET",
+        headers: managerHeaders,
       });
 
       expect(response.status).toBe(403);

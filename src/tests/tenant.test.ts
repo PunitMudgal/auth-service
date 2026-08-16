@@ -77,6 +77,7 @@ async function authHeaderFor(user: {
 describe.serial("Tenants API", () => {
   let adminHeaders: Record<string, string>;
   let userHeaders: Record<string, string>;
+  let managerHeaders: Record<string, string>;
 
   beforeAll(async () => {
     await pool.query("SELECT 1");
@@ -97,9 +98,15 @@ describe.serial("Tenants API", () => {
       role: "customer",
       tenantId: tenant.id,
     });
+    const managerUser = await insertTestUser({
+      email: "manager@gmail.com",
+      role: "manager",
+      tenantId: tenant.id,
+    });
 
     adminHeaders = await authHeaderFor(admin);
     userHeaders = await authHeaderFor(regularUser);
+    managerHeaders = await authHeaderFor(managerUser);
   });
 
   describe("POST /api/v1/tenant", () => {
@@ -182,6 +189,23 @@ describe.serial("Tenants API", () => {
         },
         body: JSON.stringify({
           name: "Forbidden Tenant",
+        }),
+      });
+
+      expect(response.status).toBe(403);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+    });
+
+    it("should return 403 when a manager tries to create a tenant", async () => {
+      const response = await app.request("/api/v1/tenant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({
+          name: "Manager Tenant",
         }),
       });
 

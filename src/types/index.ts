@@ -7,7 +7,7 @@ export interface RegisterUser {
   lastName?: string;
 }
 
-export type UserRole = "admin" | "staff" | "customer";
+export type UserRole = "admin" | "manager" | "staff" | "customer";
 
 export interface CreateUser {
   email: string;
