@@ -1,6 +1,6 @@
 import { Context } from "hono";
 import { UserService } from "../services/user.service";
-import type { CreateUserBody } from "../config/user.schema";
+import type { CreateUserBody, UpdateUserBody } from "../config/user.schema";
 
 export class UserController {
   private userService: UserService;
@@ -69,6 +69,31 @@ export class UserController {
         success: true,
         message: "User fetched successfully",
         data: user,
+        status: 200,
+      },
+      200,
+    );
+  }
+
+  async updateUser(c: Context, id: string, body: UpdateUserBody) {
+    const user = await this.userService.updateUser(id, body);
+    return c.json(
+      {
+        success: true,
+        message: "User updated successfully",
+        data: { user },
+        status: 200,
+      },
+      200,
+    );
+  }
+
+  async softDeleteUser(c: Context, id: string) {
+    await this.userService.softDeleteUser(id);
+    return c.json(
+      {
+        success: true,
+        message: "User deleted successfully",
         status: 200,
       },
       200,

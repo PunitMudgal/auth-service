@@ -5,6 +5,7 @@ import { db, pool } from "../db/connection";
 import { tenants, users } from "../db/schema";
 import { Config } from "../config";
 import { generateAccessToken } from "../utils/jwt";
+import { eq } from "drizzle-orm";
 
 async function createTestTenant(name = `tenant-${crypto.randomUUID()}`) {
   const [tenant] = await db
@@ -370,6 +371,11 @@ describe.serial("Users API", () => {
         firstName: "ById",
       });
 
+      const [tenant] = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, tenantId));
+
       const response = await app.request(`/api/v1/user/${created.id}`, {
         method: "GET",
         headers: adminHeaders,
@@ -390,6 +396,14 @@ describe.serial("Users API", () => {
           isActive: true,
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
+          tenant: {
+            id: tenant.id,
+            name: tenant.name,
+            description: tenant.description,
+            location: tenant.location,
+            createdAt: expect.any(String),
+            updatedAt: expect.any(String),
+          },
         },
         status: 200,
       });
@@ -470,6 +484,452 @@ describe.serial("Users API", () => {
           headers: userHeaders,
         },
       );
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe("PATCH /api/v1/user/:id", () => {
+    it("should update a user when admin provides valid data", async () => {
+      const created = await insertTestUser({
+        email: "patch-me@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "Updated",
+          lastName: "Name",
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({
+        success: true,
+        message: "User updated successfully",
+        data: {
+          user: {
+            id: created.id,
+            tenantId,
+            firstName: "Updated",
+            lastName: "Name",
+            email: "patch-me@gmail.com",
+            role: "customer",
+            isActive: true,
+            createdAt: expect.any(String),
+            updatedAt: expect.any(String),
+          },
+        },
+        status: 200,
+      });
+      expect(data.data.user.password).toBeUndefined();
+
+      const [saved] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, created.id));
+      expect(saved?.firstName).toBe("Updated");
+      expect(saved?.lastName).toBe("Name");
+    });
+
+    it("should update the role when admin provides it", async () => {
+      const created = await insertTestUser({
+        email: "promote-me@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ role: "manager" }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.role).toBe("manager");
+    });
+
+    it("should update the email when admin provides it", async () => {
+      const created = await insertTestUser({
+        email: "old-email@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ email: "new-email@gmail.com" }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.email).toBe("new-email@gmail.com");
+    });
+
+    it("should deactivate a user when admin sets isActive to false", async () => {
+      const created = await insertTestUser({
+        email: "deactivate-me@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.isActive).toBe(false);
+    });
+
+    it("should not expose the password after updating it", async () => {
+      const created = await insertTestUser({
+        email: "new-password@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ password: "brand-new-secret" }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.password).toBeUndefined();
+
+      const [saved] = await db
+        .select({ password: users.password })
+        .from(users)
+        .where(eq(users.id, created.id));
+      const isHashed = await bcrypt.compare("brand-new-secret", saved!.password);
+      expect(isHashed).toBe(true);
+    });
+
+    it("should return 409 when updating to an email that already exists", async () => {
+      const created = await insertTestUser({
+        email: "dupe-email@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ email: "admin@gmail.com" }),
+      });
+
+      expect(response.status).toBe(409);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.message).toBe("User already exists!");
+    });
+
+    it("should return 400 when the update body is empty", async () => {
+      const created = await insertTestUser({
+        email: "empty-patch@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({}),
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.status).toBe(400);
+    });
+
+    it("should return 400 when an invalid role is provided", async () => {
+      const created = await insertTestUser({
+        email: "invalid-role@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ role: "superadmin" }),
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+    });
+
+    it("should return 400 when the password is too short", async () => {
+      const created = await insertTestUser({
+        email: "short-password@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ password: "123" }),
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+    });
+
+    it("should return 404 when the user does not exist", async () => {
+      const response = await app.request(
+        `/api/v1/user/${crypto.randomUUID()}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...adminHeaders,
+          },
+          body: JSON.stringify({ firstName: "Ghost" }),
+        },
+      );
+
+      expect(response.status).toBe(404);
+      const data = await response.json();
+      expect(data.message).toBe("User not found");
+    });
+
+    it("should return 401 when no access token is provided", async () => {
+      const created = await insertTestUser({
+        email: "patch-unauth@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ firstName: "Nope" }),
+      });
+
+      expect(response.status).toBe(401);
+    });
+
+    it("should return 403 for a customer user", async () => {
+      const created = await insertTestUser({
+        email: "patch-forbidden@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...userHeaders,
+        },
+        body: JSON.stringify({ firstName: "Nope" }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 for a manager user", async () => {
+      const created = await insertTestUser({
+        email: "patch-manager-forbidden@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({ firstName: "Nope" }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe("DELETE /api/v1/user/:id", () => {
+    it("should soft delete a user when admin is authenticated", async () => {
+      const created = await insertTestUser({
+        email: "to-delete@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({
+        success: true,
+        message: "User deleted successfully",
+        status: 200,
+      });
+
+      // Row still exists but is flagged as deleted and deactivated
+      const [saved] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, created.id));
+      expect(saved?.deletedAt).not.toBeNull();
+      expect(saved?.isActive).toBe(false);
+    });
+
+    it("should no longer return the soft-deleted user from reads", async () => {
+      const created = await insertTestUser({
+        email: "gone-from-reads@gmail.com",
+        tenantId,
+      });
+
+      await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+        headers: adminHeaders,
+      });
+
+      const byId = await app.request(`/api/v1/user/${created.id}`, {
+        method: "GET",
+        headers: adminHeaders,
+      });
+      expect(byId.status).toBe(404);
+
+      const list = await app.request("/api/v1/user", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+      const listData = await list.json();
+      expect(
+        listData.data.some((user: { id: string }) => user.id === created.id),
+      ).toBe(false);
+    });
+
+    it("should prevent the soft-deleted user from logging in", async () => {
+      const created = await insertTestUser({
+        email: "cannot-login@gmail.com",
+        tenantId,
+      });
+
+      await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+        headers: adminHeaders,
+      });
+
+      const login = await app.request("/api/v1/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: "cannot-login@gmail.com",
+          password: "its@secret",
+        }),
+      });
+
+      expect(login.status).toBe(401);
+    });
+
+    it("should return 404 when the user does not exist", async () => {
+      const response = await app.request(
+        `/api/v1/user/${crypto.randomUUID()}`,
+        {
+          method: "DELETE",
+          headers: adminHeaders,
+        },
+      );
+
+      expect(response.status).toBe(404);
+      const data = await response.json();
+      expect(data.message).toBe("User not found");
+    });
+
+    it("should return 404 when the user is already soft deleted", async () => {
+      const created = await insertTestUser({
+        email: "already-deleted@gmail.com",
+        tenantId,
+      });
+
+      await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+        headers: adminHeaders,
+      });
+
+      const second = await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+        headers: adminHeaders,
+      });
+
+      expect(second.status).toBe(404);
+    });
+
+    it("should return 401 when no access token is provided", async () => {
+      const created = await insertTestUser({
+        email: "delete-unauth@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+      });
+
+      expect(response.status).toBe(401);
+    });
+
+    it("should return 403 for a customer user", async () => {
+      const created = await insertTestUser({
+        email: "delete-forbidden@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+        headers: userHeaders,
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 for a manager user", async () => {
+      const created = await insertTestUser({
+        email: "delete-manager-forbidden@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "DELETE",
+        headers: managerHeaders,
+      });
 
       expect(response.status).toBe(403);
     });

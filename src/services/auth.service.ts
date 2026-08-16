@@ -69,7 +69,7 @@ export class AuthService {
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email));
+      .where(and(eq(users.email, email), isNull(users.deletedAt)));
 
     if (!user) {
       throw new UnauthorizedError("Invalid email or password");
@@ -114,7 +114,7 @@ export class AuthService {
         isActive: users.isActive,
       })
       .from(users)
-      .where(eq(users.id, userId));
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)));
 
     if (!user) {
       throw new UnauthorizedError("User account no longer exists");

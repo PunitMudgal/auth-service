@@ -1,7 +1,12 @@
 import { Hono } from "hono";
 import { UserController } from "../controllers/user.controller";
 import { UserService } from "../services/user.service";
-import { CreateUserBody, createUserSchema } from "../config/user.schema";
+import {
+  CreateUserBody,
+  UpdateUserBody,
+  createUserSchema,
+  updateUserSchema,
+} from "../config/user.schema";
 import { validateBody } from "../middleware/validate-body";
 import { canAccess } from "../middleware/can-access";
 import { authenticate } from "../middleware/auth";
@@ -32,6 +37,23 @@ userRoutes.get(
   authenticate,
   canAccess("admin", { allowSelf: true }),
   (c) => userController.getUserById(c, c.req.param("id")),
+);
+
+userRoutes.patch(
+  "/:id",
+  authenticate,
+  canAccess("admin"),
+  validateBody(updateUserSchema),
+  (c) =>
+    userController.updateUser(
+      c,
+      c.req.param("id"),
+      c.req.valid("json") as UpdateUserBody,
+    ),
+);
+
+userRoutes.delete("/:id", authenticate, canAccess("admin"), (c) =>
+  userController.softDeleteUser(c, c.req.param("id")),
 );
 
 export default userRoutes;
