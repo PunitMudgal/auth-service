@@ -43,6 +43,13 @@
       "when": 1786766856380,
       "tag": "0005_shocking_maria_hill",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786884754041,
+      "tag": "0006_unknown_valeria_richards",
+      "breakpoints": true
     }
   ]
 }

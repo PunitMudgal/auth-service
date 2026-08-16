@@ -16,6 +16,7 @@ export const tenants = pgTable(
       .$defaultFn(() => crypto.randomUUID()),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
+    location: varchar("location", { length: 255 }).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -36,7 +37,7 @@ export const users = pgTable(
     email: varchar("email", { length: 255 }).notNull().unique(),
     password: varchar("password", { length: 255 }).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
-    role: text("role", { enum: ["admin", "staff", "customer"] })
+    role: text("role", { enum: ["admin", "manager", "staff", "customer"] })
       .notNull()
       .default("customer"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),

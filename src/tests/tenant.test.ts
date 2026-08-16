@@ -15,6 +15,7 @@ async function createTestTenant(
     .values({
       name: `tenant-${crypto.randomUUID()}`,
       description: "Test tenant",
+      location: "Test location",
       ...overrides,
     })
     .returning({
@@ -63,7 +64,7 @@ async function insertTestUser(
 async function authHeaderFor(user: {
   id: string;
   email: string;
-  role: "admin" | "staff" | "customer";
+  role: "admin" | "manager" | "staff" | "customer";
 }) {
   const token = await generateAccessToken({
     sub: user.id,
@@ -105,6 +106,7 @@ describe.serial("Tenants API", () => {
     it("should create a tenant when admin provides valid data", async () => {
       const payload = {
         name: "Acme Corp",
+        location: "New York, USA",
         description: "Main organization",
       };
 
@@ -133,6 +135,7 @@ describe.serial("Tenants API", () => {
         .from(tenants)
         .where(eq(tenants.id, data.data.tenantId));
       expect(saved[0]?.name).toBe(payload.name);
+      expect(saved[0]?.location).toBe(payload.location);
       expect(saved[0]?.description).toBe(payload.description);
     });
 
@@ -145,6 +148,7 @@ describe.serial("Tenants API", () => {
         },
         body: JSON.stringify({
           name: "No Description Tenant",
+          location: "Paris, France",
         }),
       });
 
@@ -324,6 +328,7 @@ describe.serial("Tenants API", () => {
         },
         body: JSON.stringify({
           name: "after-update",
+          location: "Berlin, Germany",
           description: "new",
         }),
       });
@@ -337,6 +342,7 @@ describe.serial("Tenants API", () => {
           {
             id: tenant.id,
             name: "after-update",
+            location: "Berlin, Germany",
             description: "new",
           },
         ],

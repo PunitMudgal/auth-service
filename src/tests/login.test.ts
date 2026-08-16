@@ -12,6 +12,7 @@ async function createTestTenant() {
     .values({
       name: `tenant-${crypto.randomUUID()}`,
       description: "Test tenant",
+      location: "Test location",
     })
     .returning({ id: tenants.id });
 

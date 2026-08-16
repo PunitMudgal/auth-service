@@ -12,6 +12,7 @@ async function createTestTenant(name = `tenant-${crypto.randomUUID()}`) {
     .values({
       name,
       description: "Test tenant",
+      location: "Test location",
     })
     .returning({ id: tenants.id, name: tenants.name });
 
@@ -56,7 +57,7 @@ async function insertTestUser(
 }
 
 async function authHeaderFor(
-  user: { id: string; email: string; role: "admin" | "staff" | "customer" },
+  user: { id: string; email: string; role: "admin" | "manager" | "staff" | "customer" },
 ) {
   const token = await generateAccessToken({
     sub: user.id,

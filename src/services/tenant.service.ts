@@ -8,10 +8,12 @@ export class TenantService {
   async createTenant(body: TenantBody){
     return await db.insert(tenants).values({
       name: body.name,
+      location: body.location,
       description: body.description
     }).returning({
       id: tenants.id,
       name: tenants.name,
+      location: tenants.location,
       description: tenants.description
     });
   }
@@ -28,6 +30,7 @@ export class TenantService {
     return await db.update(tenants).set(body).where(eq(tenants.id, id)).returning({
       id: tenants.id,
       name: tenants.name,
+      location: tenants.location,
       description: tenants.description
     });
   }
@@ -36,6 +39,7 @@ export class TenantService {
     return await db.delete(tenants).where(eq(tenants.id, id)).returning({
       id: tenants.id,
       name: tenants.name,
+      location: tenants.location,
       description: tenants.description
     });
   }
