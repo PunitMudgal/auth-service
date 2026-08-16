@@ -4,7 +4,7 @@ export interface RegisterUser {
   email: string;
   password: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
 }
 
 export type UserRole = "admin" | "staff" | "customer";

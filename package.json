@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "generate": "NODE_ENV=development drizzle-kit generate",
     "migrate": "NODE_ENV=development drizzle-kit migrate",
+    "push": "NODE_ENV=development drizzle-kit push",
     "studio": "NODE_ENV=development drizzle-kit studio"
   },
   "dependencies": {

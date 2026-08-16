@@ -14,7 +14,8 @@ export const registerSchema = z.object({
   lastName: z
     .string()
     .trim()
-    .max(100, { message: "Last name must be at most 100 characters long" }),
+    .max(100, { message: "Last name must be at most 100 characters long" })
+    .optional(),
 });
 
 export type RegisterBody = z.infer<typeof registerSchema>;
