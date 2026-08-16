@@ -7,6 +7,8 @@ import { Config } from "../config";
 import { generateAccessToken } from "../utils/jwt";
 import { eq } from "drizzle-orm";
 
+let cachedDefaultPasswordHash: string | undefined;
+
 async function createTestTenant(name = `tenant-${crypto.randomUUID()}`) {
   const [tenant] = await db
     .insert(tenants)
@@ -29,7 +31,12 @@ async function insertTestUser(
 ) {
   const { password: rawPassword, ...rest } = overrides;
   const password = rawPassword ?? "its@secret";
-  const hashedPassword = await bcrypt.hash(password, Config.auth.bcryptCost);
+  const hashedPassword = rawPassword
+    ? await bcrypt.hash(password, Config.auth.bcryptCost)
+    : (cachedDefaultPasswordHash ??= await bcrypt.hash(
+        password,
+        Config.auth.bcryptCost,
+      ));
 
   const [user] = await db
     .insert(users)
@@ -57,9 +64,11 @@ async function insertTestUser(
   return user;
 }
 
-async function authHeaderFor(
-  user: { id: string; email: string; role: "admin" | "manager" | "staff" | "customer" },
-) {
+async function authHeaderFor(user: {
+  id: string;
+  email: string;
+  role: "admin" | "manager" | "staff" | "customer";
+}) {
   const token = await generateAccessToken({
     sub: user.id,
     email: user.email,
@@ -505,13 +514,10 @@ describe.serial("Users API", () => {
         tenantId,
       });
 
-      const response = await app.request(
-        "/api/v1/user?search=SEARCH-TARGET",
-        {
-          method: "GET",
-          headers: adminHeaders,
-        },
-      );
+      const response = await app.request("/api/v1/user?search=SEARCH-TARGET", {
+        method: "GET",
+        headers: adminHeaders,
+      });
 
       expect(response.status).toBe(200);
       const data = await response.json();
@@ -650,13 +656,10 @@ describe.serial("Users API", () => {
     });
 
     it("should return 403 for a non-admin/customer user", async () => {
-      const response = await app.request(
-        "/api/v1/user/email/admin@gmail.com",
-        {
-          method: "GET",
-          headers: userHeaders,
-        },
-      );
+      const response = await app.request("/api/v1/user/email/admin@gmail.com", {
+        method: "GET",
+        headers: userHeaders,
+      });
 
       expect(response.status).toBe(403);
     });
@@ -794,7 +797,10 @@ describe.serial("Users API", () => {
         .select({ password: users.password })
         .from(users)
         .where(eq(users.id, created.id));
-      const isHashed = await bcrypt.compare("brand-new-secret", saved!.password);
+      const isHashed = await bcrypt.compare(
+        "brand-new-secret",
+        saved!.password,
+      );
       expect(isHashed).toBe(true);
     });
 
@@ -1004,7 +1010,9 @@ describe.serial("Users API", () => {
       });
       const listData = await list.json();
       expect(
-        listData.data.items.some((user: { id: string }) => user.id === created.id),
+        listData.data.items.some(
+          (user: { id: string }) => user.id === created.id,
+        ),
       ).toBe(false);
     });
 
