@@ -4,10 +4,13 @@ import { UserService } from "../services/user.service";
 import {
   CreateUserBody,
   UpdateUserBody,
+  UserListQuery,
   createUserSchema,
   updateUserSchema,
+  userListQuerySchema,
 } from "../config/user.schema";
 import { validateBody } from "../middleware/validate-body";
+import { validateQuery } from "../middleware/validate-query";
 import { canAccess } from "../middleware/can-access";
 import { authenticate } from "../middleware/auth";
 
@@ -22,8 +25,12 @@ userRoutes.post(
   (c) => userController.createUser(c, c.req.valid("json") as CreateUserBody),
 );
 
-userRoutes.get("/", authenticate, canAccess("admin"), (c) =>
-  userController.getUsers(c),
+userRoutes.get(
+  "/",
+  authenticate,
+  canAccess("admin"),
+  validateQuery(userListQuerySchema),
+  (c) => userController.getUsers(c, c.req.valid("query") as UserListQuery),
 );
 
 userRoutes.get("/self", authenticate, (c) => userController.getSelf(c));

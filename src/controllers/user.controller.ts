@@ -1,6 +1,10 @@
 import { Context } from "hono";
 import { UserService } from "../services/user.service";
-import type { CreateUserBody, UpdateUserBody } from "../config/user.schema";
+import type {
+  CreateUserBody,
+  UpdateUserBody,
+  UserListQuery,
+} from "../config/user.schema";
 
 export class UserController {
   private userService: UserService;
@@ -22,13 +26,13 @@ export class UserController {
     );
   }
 
-  async getUsers(c: Context) {
-    const users = await this.userService.getUsers();
+  async getUsers(c: Context, query: UserListQuery) {
+    const result = await this.userService.getUsers(query);
     return c.json(
       {
         success: true,
         message: "Users fetched successfully",
-        data: users,
+        data: result,
         status: 200,
       },
       200,

@@ -1,9 +1,9 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNull, ne, or } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import { db } from "../db/connection";
 import { refreshTokens, tenants, users } from "../db/schema";
 import type { CreateUser } from "../types";
-import type { UpdateUserBody } from "../config/user.schema";
+import type { UpdateUserBody, UserListQuery } from "../config/user.schema";
 import { Config } from "../config";
 import { ConflictError, NotFoundError } from "../utils/errors";
 
@@ -69,8 +69,39 @@ export class UserService {
     return user;
   }
 
-  async getUsers() {
-    return db.select(userSelect).from(users).where(isNull(users.deletedAt));
+  async getUsers({ page, limit, search }: UserListQuery) {
+    const searchCondition = search
+      ? or(
+          ilike(users.firstName, `%${search}%`),
+          ilike(users.lastName, `%${search}%`),
+          ilike(users.email, `%${search}%`),
+        )
+      : undefined;
+
+    const where = and(isNull(users.deletedAt), searchCondition);
+
+    const [items, totalRows] = await Promise.all([
+      db
+        .select(userSelect)
+        .from(users)
+        .where(where)
+        .orderBy(desc(users.createdAt))
+        .limit(limit)
+        .offset((page - 1) * limit),
+      db.select({ count: count() }).from(users).where(where),
+    ]);
+
+    const total = totalRows[0]?.count ?? 0;
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getUserById(id: string) {

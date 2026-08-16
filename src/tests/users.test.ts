@@ -330,10 +330,16 @@ describe.serial("Users API", () => {
       const data = await response.json();
       expect(data.success).toBe(true);
       expect(data.message).toBe("Users fetched successfully");
-      expect(data.data).toHaveLength(3);
-      expect(data.data.every((user: { password?: string }) => !user.password)).toBe(
-        true,
-      );
+      expect(data.data.items).toHaveLength(3);
+      expect(data.data.pagination).toEqual({
+        page: 1,
+        limit: 10,
+        total: 3,
+        totalPages: 1,
+      });
+      expect(
+        data.data.items.every((user: { password?: string }) => !user.password),
+      ).toBe(true);
     });
 
     it("should return 401 when no access token is provided", async () => {
@@ -360,6 +366,173 @@ describe.serial("Users API", () => {
       });
 
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe("GET /api/v1/user (pagination)", () => {
+    it("should paginate results and report total counts", async () => {
+      for (let i = 0; i < 15; i++) {
+        await insertTestUser({
+          email: `page-${i}@gmail.com`,
+          tenantId,
+          firstName: "PageUser",
+        });
+      }
+
+      const page1 = await app.request("/api/v1/user?page=1&limit=5", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+      expect(page1.status).toBe(200);
+      const page1Data = await page1.json();
+      expect(page1Data.data.items).toHaveLength(5);
+      expect(page1Data.data.pagination).toEqual({
+        page: 1,
+        limit: 5,
+        total: 18,
+        totalPages: 4,
+      });
+
+      const page2 = await app.request("/api/v1/user?page=2&limit=5", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+      const page2Data = await page2.json();
+      expect(page2Data.data.items).toHaveLength(5);
+      expect(page2Data.data.pagination).toEqual({
+        page: 2,
+        limit: 5,
+        total: 18,
+        totalPages: 4,
+      });
+
+      const page1Ids = page1Data.data.items.map((u: { id: string }) => u.id);
+      const page2Ids = page2Data.data.items.map((u: { id: string }) => u.id);
+      expect(page1Ids.some((id: string) => page2Ids.includes(id))).toBe(false);
+    });
+
+    it("should use default page and limit when none are provided", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.pagination).toEqual({
+        page: 1,
+        limit: 10,
+        total: 3,
+        totalPages: 1,
+      });
+    });
+
+    it("should return 400 when page is invalid", async () => {
+      const response = await app.request("/api/v1/user?page=0", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should return 400 when limit is too large", async () => {
+      const response = await app.request("/api/v1/user?limit=101", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should return 400 when page is not a number", async () => {
+      const response = await app.request("/api/v1/user?page=abc", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(400);
+    });
+  });
+
+  describe("GET /api/v1/user (search)", () => {
+    it("should filter users by first name", async () => {
+      await insertTestUser({
+        email: "search-first@gmail.com",
+        tenantId,
+        firstName: "UniqueSearchFirst",
+      });
+
+      const response = await app.request(
+        "/api/v1/user?search=UniqueSearchFirst",
+        {
+          method: "GET",
+          headers: adminHeaders,
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].email).toBe("search-first@gmail.com");
+      expect(data.data.pagination.total).toBe(1);
+    });
+
+    it("should filter users by last name", async () => {
+      await insertTestUser({
+        email: "search-last@gmail.com",
+        tenantId,
+        lastName: "UniqueSearchLast",
+      });
+
+      const response = await app.request(
+        "/api/v1/user?search=UniqueSearchLast",
+        {
+          method: "GET",
+          headers: adminHeaders,
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].email).toBe("search-last@gmail.com");
+    });
+
+    it("should filter users by email case-insensitively", async () => {
+      await insertTestUser({
+        email: "search-target@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(
+        "/api/v1/user?search=SEARCH-TARGET",
+        {
+          method: "GET",
+          headers: adminHeaders,
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].email).toBe("search-target@gmail.com");
+    });
+
+    it("should return an empty list when nothing matches", async () => {
+      const response = await app.request(
+        "/api/v1/user?search=zzz-no-match-zzz",
+        {
+          method: "GET",
+          headers: adminHeaders,
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(0);
+      expect(data.data.pagination.total).toBe(0);
+      expect(data.data.pagination.totalPages).toBe(0);
     });
   });
 
@@ -831,7 +1004,7 @@ describe.serial("Users API", () => {
       });
       const listData = await list.json();
       expect(
-        listData.data.some((user: { id: string }) => user.id === created.id),
+        listData.data.items.some((user: { id: string }) => user.id === created.id),
       ).toBe(false);
     });
 
