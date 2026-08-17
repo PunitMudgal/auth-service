@@ -68,11 +68,13 @@ async function authHeaderFor(user: {
   id: string;
   email: string;
   role: "admin" | "manager" | "staff" | "customer";
+  tenantId: string | null;
 }) {
   const token = await generateAccessToken({
     sub: user.id,
     email: user.email,
     role: user.role,
+    tenantId: user.tenantId,
   });
   return { Authorization: `Bearer ${token}` };
 }
@@ -368,10 +370,79 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(403);
     });
 
-    it("should return 403 for a manager user", async () => {
+    it("should return the users of the manager's own tenant", async () => {
       const response = await app.request("/api/v1/user", {
         method: "GET",
         headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.items).toHaveLength(3);
+      expect(data.data.pagination).toEqual({
+        page: 1,
+        limit: 10,
+        total: 3,
+        totalPages: 1,
+      });
+    });
+
+    it("should not leak users from other tenants to a manager", async () => {
+      const otherTenant = await createTestTenant();
+      await insertTestUser({
+        email: "other-tenant-a@gmail.com",
+        tenantId: otherTenant.id,
+      });
+      await insertTestUser({
+        email: "other-tenant-b@gmail.com",
+        tenantId: otherTenant.id,
+      });
+
+      const response = await app.request("/api/v1/user", {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(3);
+      const emails = data.data.items.map((u: { email: string }) => u.email);
+      expect(emails).not.toContain("other-tenant-a@gmail.com");
+      expect(emails).not.toContain("other-tenant-b@gmail.com");
+      expect(data.data.pagination.total).toBe(3);
+    });
+
+    it("should return users across all tenants for an admin", async () => {
+      const otherTenant = await createTestTenant();
+      await insertTestUser({
+        email: "admin-cross-tenant@gmail.com",
+        tenantId: otherTenant.id,
+      });
+
+      const response = await app.request("/api/v1/user", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(4);
+      const emails = data.data.items.map((u: { email: string }) => u.email);
+      expect(emails).toContain("admin-cross-tenant@gmail.com");
+    });
+
+    it("should return 403 for a staff user", async () => {
+      const staffUser = await insertTestUser({
+        email: "staff@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+      const staffHeaders = await authHeaderFor(staffUser);
+
+      const response = await app.request("/api/v1/user", {
+        method: "GET",
+        headers: staffHeaders,
       });
 
       expect(response.status).toBe(403);
@@ -539,6 +610,140 @@ describe.serial("Users API", () => {
       expect(data.data.items).toHaveLength(0);
       expect(data.data.pagination.total).toBe(0);
       expect(data.data.pagination.totalPages).toBe(0);
+    });
+  });
+
+  describe("GET /api/v1/user (filters)", () => {
+    it("should filter users by role for an admin", async () => {
+      const response = await app.request("/api/v1/user?role=customer", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].role).toBe("customer");
+      expect(data.data.items[0].email).toBe("member@gmail.com");
+      expect(data.data.pagination.total).toBe(1);
+    });
+
+    it("should filter managers by role for an admin", async () => {
+      const response = await app.request("/api/v1/user?role=manager", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].role).toBe("manager");
+    });
+
+    it("should filter users by active status for an admin", async () => {
+      await insertTestUser({
+        email: "inactive-admin-filter@gmail.com",
+        tenantId,
+        isActive: false,
+      });
+
+      const response = await app.request("/api/v1/user?isActive=false", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].email).toBe("inactive-admin-filter@gmail.com");
+      expect(data.data.items[0].isActive).toBe(false);
+    });
+
+    it("should let a manager filter their tenant's customers", async () => {
+      const response = await app.request("/api/v1/user?role=customer", {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].role).toBe("customer");
+      expect(data.data.items[0].email).toBe("member@gmail.com");
+    });
+
+    it("should let a manager filter their tenant's staff only", async () => {
+      await insertTestUser({
+        email: "staff-filter@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+
+      const response = await app.request("/api/v1/user?role=staff", {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].email).toBe("staff-filter@gmail.com");
+      expect(data.data.items[0].role).toBe("staff");
+    });
+
+    it("should let a manager filter by active status", async () => {
+      await insertTestUser({
+        email: "inactive-manager-filter@gmail.com",
+        tenantId,
+        isActive: false,
+      });
+
+      const response = await app.request("/api/v1/user?isActive=false", {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].email).toBe("inactive-manager-filter@gmail.com");
+      expect(data.data.items[0].isActive).toBe(false);
+    });
+
+    it("should not let a manager filter by the admin role", async () => {
+      const response = await app.request("/api/v1/user?role=admin", {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should not let a manager filter by the manager role", async () => {
+      const response = await app.request("/api/v1/user?role=manager", {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 400 for an invalid role filter", async () => {
+      const response = await app.request("/api/v1/user?role=superadmin", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should return 400 for an invalid isActive filter", async () => {
+      const response = await app.request("/api/v1/user?isActive=yes", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(400);
     });
   });
 

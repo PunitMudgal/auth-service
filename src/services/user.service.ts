@@ -2,10 +2,10 @@ import { and, count, desc, eq, ilike, isNull, ne, or } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import { db } from "../db/connection";
 import { refreshTokens, tenants, users } from "../db/schema";
-import type { CreateUser } from "../types";
+import type { CreateUser, UserRole } from "../types";
 import type { UpdateUserBody, UserListQuery } from "../config/user.schema";
 import { Config } from "../config";
-import { ConflictError, NotFoundError } from "../utils/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../utils/errors";
 
 const userSelect = {
   id: users.id,
@@ -69,7 +69,36 @@ export class UserService {
     return user;
   }
 
-  async getUsers({ page, limit, search }: UserListQuery) {
+  async getUsers(
+    { page, limit, search, role, isActive }: UserListQuery,
+    caller: { role: UserRole; tenantId: string | null },
+  ) {
+    // Route middleware already restricts access to admin/manager, but
+    // enforce it here too so the service is safe as the last line of defense.
+    if (caller.role !== "admin" && caller.role !== "manager") {
+      throw new ForbiddenError("Access denied");
+    }
+
+    // Managers may only filter their tenant's customers and staff
+    if (
+      caller.role === "manager" &&
+      role &&
+      role !== "customer" &&
+      role !== "staff"
+    ) {
+      throw new ForbiddenError(
+        "Managers can only filter by customer or staff roles",
+      );
+    }
+
+    // A manager without a tenant (shouldn't happen) has nobody to see
+    if (caller.role === "manager" && !caller.tenantId) {
+      return {
+        items: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      };
+    }
+
     const searchCondition = search
       ? or(
           ilike(users.firstName, `%${search}%`),
@@ -78,7 +107,19 @@ export class UserService {
         )
       : undefined;
 
-    const where = and(isNull(users.deletedAt), searchCondition);
+    // Admin sees every user in the app; manager is scoped to their tenant.
+    const tenantCondition =
+      caller.role === "manager" && caller.tenantId
+        ? eq(users.tenantId, caller.tenantId)
+        : undefined;
+
+    const where = and(
+      isNull(users.deletedAt),
+      searchCondition,
+      tenantCondition,
+      role ? eq(users.role, role) : undefined,
+      isActive !== undefined ? eq(users.isActive, isActive) : undefined,
+    );
 
     const [items, totalRows] = await Promise.all([
       db

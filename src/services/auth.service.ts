@@ -33,6 +33,7 @@ interface RefreshableUser {
   id: string;
   email: string;
   role: UserRole;
+  tenantId: string | null;
   isActive: boolean;
 }
 
@@ -111,6 +112,7 @@ export class AuthService {
         id: users.id,
         email: users.email,
         role: users.role,
+        tenantId: users.tenantId,
         isActive: users.isActive,
       })
       .from(users)

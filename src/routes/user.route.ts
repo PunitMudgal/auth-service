@@ -28,7 +28,7 @@ userRoutes.post(
 userRoutes.get(
   "/",
   authenticate,
-  canAccess("admin"),
+  canAccess("admin", "manager"),
   validateQuery(userListQuerySchema),
   (c) => userController.getUsers(c, c.req.valid("query") as UserListQuery),
 );

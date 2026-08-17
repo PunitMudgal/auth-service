@@ -38,6 +38,7 @@ export class AuthController {
       sub: user.id,
       email: user.email,
       role: user.role,
+      tenantId: user.tenantId,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -87,6 +88,7 @@ export class AuthController {
       sub: user.id,
       email: user.email,
       role: user.role,
+      tenantId: user.tenantId,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -177,6 +179,7 @@ export class AuthController {
       sub: user.id,
       email: user.email,
       role: user.role,
+      tenantId: user.tenantId,
     });
     const newTokenHash = await hashToken(newRefreshToken);
 
@@ -193,6 +196,7 @@ export class AuthController {
       sub: user.id,
       email: user.email,
       role: user.role,
+      tenantId: user.tenantId,
     });
 
     setAuthCookies(c, accessToken, newRefreshToken);

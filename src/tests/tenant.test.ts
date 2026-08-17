@@ -52,6 +52,7 @@ async function insertTestUser(
       id: users.id,
       email: users.email,
       role: users.role,
+      tenantId: users.tenantId,
     });
 
   if (!user) {
@@ -65,11 +66,13 @@ async function authHeaderFor(user: {
   id: string;
   email: string;
   role: "admin" | "manager" | "staff" | "customer";
+  tenantId: string | null;
 }) {
   const token = await generateAccessToken({
     sub: user.id,
     email: user.email,
     role: user.role,
+    tenantId: user.tenantId,
   });
   return { Authorization: `Bearer ${token}` };
 }

@@ -60,6 +60,13 @@ export const userListQuerySchema = z.object({
     .max(100, "Limit must be at most 100")
     .default(10),
   search: z.string().trim().max(255, "Search must be at most 255 characters").optional(),
+  role: z.enum(["admin", "manager", "staff", "customer"]).optional(),
+  isActive: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) =>
+      value === undefined ? undefined : value === "true",
+    ),
 });
 
 export type UserListQuery = z.infer<typeof userListQuerySchema>;

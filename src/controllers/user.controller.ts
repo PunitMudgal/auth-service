@@ -27,7 +27,8 @@ export class UserController {
   }
 
   async getUsers(c: Context, query: UserListQuery) {
-    const result = await this.userService.getUsers(query);
+    const { role, tenantId } = c.get("user");
+    const result = await this.userService.getUsers(query, { role, tenantId });
     return c.json(
       {
         success: true,
