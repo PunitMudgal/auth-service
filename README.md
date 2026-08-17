@@ -6,6 +6,7 @@ A multi-tenant authentication and user management API built with [Bun](https://b
 
 - **JWT authentication** — short-lived access tokens (15 min by default) with long-lived refresh tokens (30 days by default)
 - **Refresh token rotation** — every refresh invalidates the previous token; reuse of a revoked token revokes all of the user's sessions (reuse detection)
+- **Password reset** — time-limited reset tokens stored as SHA-256 hashes; resetting the password revokes every active session
 - **Secure cookie storage** — tokens are delivered as `HttpOnly` cookies with `SameSite=Strict`, marked `Secure` in production
 - **Multi-tenancy** — users are scoped to tenants, with admin-managed tenant CRUD
 - **Role-based access control** — `admin`, `manager`, `staff`, and `customer` roles enforced through reusable middleware
@@ -86,6 +87,8 @@ All routes are prefixed with `/api/v1`. Responses follow a consistent envelope: 
 | POST | `/auth/login` | Log in and receive tokens as cookies | Public |
 | POST | `/auth/refresh` | Rotate the refresh token and issue a new access token | Refresh cookie |
 | POST | `/auth/logout` | Revoke the refresh token and clear cookies | Refresh cookie |
+| POST | `/auth/forgot-password` | Issue a time-limited password reset token | Public |
+| POST | `/auth/reset-password` | Set a new password, mark the token used, and revoke all sessions | Reset token |
 
 ### Tenants
 
@@ -118,6 +121,9 @@ curl http://localhost:3000/api/v1/user/self \
 
 > [!NOTE]
 > The refresh token is bound to the `/api/v1/auth` path, so it is only sent to auth endpoints. Refresh tokens are stored in the database as SHA-256 hashes — never as plain text — along with device metadata (IP address and user agent). Expired and revoked tokens are cleaned up automatically after logout and refresh.
+
+> [!NOTE]
+> `POST /auth/forgot-password` returns the reset token in the response body as a stand-in for email delivery. In production, replace that with sending the token to the user's inbox and never return it in the response. Reset tokens are single-use, expire after 15 minutes, and are stored as SHA-256 hashes.
 
 ## Security
 

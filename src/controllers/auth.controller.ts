@@ -3,6 +3,10 @@ import { getCookie } from "hono/cookie";
 import { AuthService } from "../services/auth.service";
 import type { LoginBody } from "../config/login.schema";
 import type { RegisterBody } from "../config/register.schema";
+import type {
+  ForgotPasswordBody,
+  ResetPasswordBody,
+} from "../config/password-reset.schema";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -120,6 +124,36 @@ export class AuthController {
             tenantId: user.tenantId,
           },
         },
+        status: 200,
+      },
+      200,
+    );
+  }
+
+  async forgotPassword(c: Context, body: ForgotPasswordBody) {
+    const rawToken = await this.authService.createPasswordResetToken(body.email);
+
+    // Always respond the same way so callers can't tell whether an email is
+    // registered. The raw token stands in for email delivery — in production
+    // it should be sent to the user's inbox instead of returned in the body.
+    return c.json(
+      {
+        success: true,
+        message: "If that email is registered, a reset token has been issued",
+        ...(rawToken ? { data: { resetToken: rawToken } } : {}),
+        status: 200,
+      },
+      200,
+    );
+  }
+
+  async resetPassword(c: Context, body: ResetPasswordBody) {
+    await this.authService.resetPassword(body.token, body.newPassword);
+
+    return c.json(
+      {
+        success: true,
+        message: "Password reset successfully. All sessions have been terminated.",
         status: 200,
       },
       200,

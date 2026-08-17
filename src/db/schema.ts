@@ -47,6 +47,25 @@ export const users = pgTable(
   (table) => [unique("email_unique").on(table.email)],
 );
 
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 255 }).notNull().unique(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    usedAt: timestamp("used_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [unique("password_reset_token_hash_unique").on(table.tokenHash)],
+);
+
 export const refreshTokens = pgTable(
   "refresh_tokens",
   {
@@ -78,6 +97,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [tenants.id],
   }),
   refreshTokens: many(refreshTokens),
+  passwordResetTokens: many(passwordResetTokens),
 }));
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
@@ -86,3 +106,13 @@ export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const passwordResetTokensRelations = relations(
+  passwordResetTokens,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [passwordResetTokens.userId],
+      references: [users.id],
+    }),
+  }),
+);

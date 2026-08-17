@@ -57,6 +57,13 @@
       "when": 1786899854635,
       "tag": "0007_acoustic_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786950345286,
+      "tag": "0008_mighty_mole_man",
+      "breakpoints": true
     }
   ]
 }
