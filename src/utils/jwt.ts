@@ -23,7 +23,15 @@ function buildPayload(
   expiresInSeconds: number,
 ) {
   const now = Math.floor(Date.now() / 1000);
-  return { ...payload, iat: now, exp: now + expiresInSeconds };
+  // jti makes every token unique even when generated within the same second
+  // (iat has second-level precision). Without it, two refresh tokens minted
+  // back-to-back are byte-identical and collide on the token_hash unique index.
+  return {
+    ...payload,
+    jti: crypto.randomUUID(),
+    iat: now,
+    exp: now + expiresInSeconds,
+  };
 }
 
 /** Sign a JWT with the given secret and expiry duration string (e.g. "15m"). */
