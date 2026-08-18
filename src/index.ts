@@ -8,7 +8,7 @@ import tenantRoutes from "./routes/tenant.route";
 import userRoutes from "./routes/user.route";
 import { logger } from "./utils/logger";
 
-const app = new Hono().basePath("/api/v1");
+const app = new Hono({ strict: false }).basePath("/api/v1");
 
 app.use("*", honoLogger());
 app.use(

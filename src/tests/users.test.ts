@@ -507,6 +507,24 @@ describe.serial("Users API", () => {
       });
     });
 
+    it("should list users when the path has a trailing slash", async () => {
+      const response = await app.request("/api/v1/user/?page=1&limit=10", {
+        method: "GET",
+        headers: adminHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.message).toBe("Users fetched successfully");
+      expect(data.data.pagination).toEqual({
+        page: 1,
+        limit: 10,
+        total: 3,
+        totalPages: 1,
+      });
+    });
+
     it("should return 400 when page is invalid", async () => {
       const response = await app.request("/api/v1/user?page=0", {
         method: "GET",
