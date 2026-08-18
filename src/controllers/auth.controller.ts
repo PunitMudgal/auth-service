@@ -19,7 +19,7 @@ import {
   getRefreshExpiry,
   setAuthCookies,
 } from "../utils/cookie";
-import { UnauthorizedError } from "../utils/errors";
+import { NotFoundError, UnauthorizedError } from "../utils/errors";
 
 export class AuthController {
   private authService: AuthService;
@@ -154,6 +154,48 @@ export class AuthController {
       {
         success: true,
         message: "Password reset successfully. All sessions have been terminated.",
+        status: 200,
+      },
+      200,
+    );
+  }
+
+  async getSessions(c: Context) {
+    const { sub } = c.get("user");
+    const rawToken = getCookie(c, "refresh_token");
+    const currentTokenHash = rawToken ? await hashToken(rawToken) : undefined;
+
+    const items = await this.authService.getActiveSessions(sub, currentTokenHash);
+
+    return c.json(
+      {
+        success: true,
+        message: "Sessions fetched successfully",
+        data: { items },
+        status: 200,
+      },
+      200,
+    );
+  }
+
+  async revokeSession(c: Context, id: string) {
+    const { sub } = c.get("user");
+    const revokedTokenHash = await this.authService.revokeSession(sub, id);
+
+    if (!revokedTokenHash) {
+      throw new NotFoundError("Session not found");
+    }
+
+    // If the user revoked the session they are currently using, clear the cookies
+    const rawToken = getCookie(c, "refresh_token");
+    if (rawToken && (await hashToken(rawToken)) === revokedTokenHash) {
+      clearAuthCookies(c);
+    }
+
+    return c.json(
+      {
+        success: true,
+        message: "Session revoked successfully",
         status: 200,
       },
       200,

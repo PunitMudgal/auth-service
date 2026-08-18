@@ -10,6 +10,7 @@ import type { ForgotPasswordBody } from "../config/password-reset.schema";
 import { resetPasswordSchema } from "../config/password-reset.schema";
 import type { ResetPasswordBody } from "../config/password-reset.schema";
 import { validateBody } from "../middleware/validate-body";
+import { authenticate } from "../middleware/auth";
 const authRoutes = new Hono();
 const authController = new AuthController(new AuthService());
 
@@ -35,6 +36,12 @@ authRoutes.post(
   "/reset-password",
   validateBody(resetPasswordSchema),
   (c) => authController.resetPassword(c, c.req.valid("json") as ResetPasswordBody),
+);
+
+authRoutes.get("/sessions", authenticate, (c) => authController.getSessions(c));
+
+authRoutes.delete("/sessions/:id", authenticate, (c) =>
+  authController.revokeSession(c, c.req.param("id")),
 );
 
 export default authRoutes;

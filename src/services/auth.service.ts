@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db } from "../db/connection";
 import { passwordResetTokens, refreshTokens, users } from "../db/schema";
@@ -154,6 +154,61 @@ export class AuthService {
       .set({ revokedAt: new Date() })
       .where(eq(refreshTokens.tokenHash, tokenHash));
     // Silent if missing — the user asked to always succeed
+  }
+
+  /**
+   * List all active (non-revoked, non-expired) sessions for a user. The token
+   * hash is never exposed; the session matching the caller's current refresh
+   * token is flagged with isCurrent.
+   */
+  async getActiveSessions(userId: string, currentTokenHash?: string) {
+    const rows = await db
+      .select({
+        id: refreshTokens.id,
+        deviceName: refreshTokens.deviceName,
+        ipAddress: refreshTokens.ipAddress,
+        userAgent: refreshTokens.userAgent,
+        createdAt: refreshTokens.createdAt,
+        lastUsedAt: refreshTokens.lastUsedAt,
+        expiresAt: refreshTokens.expiresAt,
+        tokenHash: refreshTokens.tokenHash,
+      })
+      .from(refreshTokens)
+      .where(
+        and(
+          eq(refreshTokens.userId, userId),
+          isNull(refreshTokens.revokedAt),
+          gt(refreshTokens.expiresAt, new Date()),
+        ),
+      )
+      .orderBy(desc(refreshTokens.lastUsedAt));
+
+    return rows.map(({ tokenHash, ...session }) => ({
+      ...session,
+      isCurrent: currentTokenHash !== undefined && tokenHash === currentTokenHash,
+    }));
+  }
+
+  /**
+   * Revoke a single session. Only succeeds when the session belongs to the
+   * given user and is still active. Returns the revoked token's hash (so the
+   * caller can tell whether it was the current session) or null when nothing
+   * was revoked.
+   */
+  async revokeSession(userId: string, sessionId: string): Promise<string | null> {
+    const [result] = await db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(refreshTokens.id, sessionId),
+          eq(refreshTokens.userId, userId),
+          isNull(refreshTokens.revokedAt),
+        ),
+      )
+      .returning({ tokenHash: refreshTokens.tokenHash });
+
+    return result?.tokenHash ?? null;
   }
 
   async revokeAllUserRefreshTokens(userId: string) {
