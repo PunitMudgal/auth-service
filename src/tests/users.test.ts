@@ -706,7 +706,9 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(200);
       const data = await response.json();
       expect(data.data.items).toHaveLength(1);
-      expect(data.data.items[0].email).toBe("inactive-manager-filter@gmail.com");
+      expect(data.data.items[0].email).toBe(
+        "inactive-manager-filter@gmail.com",
+      );
       expect(data.data.items[0].isActive).toBe(false);
     });
 
@@ -719,13 +721,17 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(403);
     });
 
-    it("should not let a manager filter by the manager role", async () => {
+    it("should let a manager filter by the manager role in their tenant", async () => {
       const response = await app.request("/api/v1/user?role=manager", {
         method: "GET",
         headers: managerHeaders,
       });
 
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.items).toHaveLength(1);
+      expect(data.data.items[0].email).toBe("manager@gmail.com");
+      expect(data.data.items[0].role).toBe("manager");
     });
 
     it("should return 400 for an invalid role filter", async () => {

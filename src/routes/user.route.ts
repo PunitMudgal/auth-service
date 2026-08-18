@@ -17,6 +17,7 @@ import { authenticate } from "../middleware/auth";
 const userRoutes = new Hono();
 const userController = new UserController(new UserService());
 
+// Create a new user
 userRoutes.post(
   "/",
   authenticate,
@@ -25,6 +26,7 @@ userRoutes.post(
   (c) => userController.createUser(c, c.req.valid("json") as CreateUserBody),
 );
 
+// get all users
 userRoutes.get(
   "/",
   authenticate,
@@ -33,12 +35,15 @@ userRoutes.get(
   (c) => userController.getUsers(c, c.req.valid("query") as UserListQuery),
 );
 
+// get self user
 userRoutes.get("/self", authenticate, (c) => userController.getSelf(c));
 
+// get user by email
 userRoutes.get("/email/:email", authenticate, canAccess("admin"), (c) =>
   userController.getUserByEmail(c, c.req.param("email")),
 );
 
+// get user by id
 userRoutes.get(
   "/:id",
   authenticate,
@@ -46,6 +51,7 @@ userRoutes.get(
   (c) => userController.getUserById(c, c.req.param("id")),
 );
 
+// update user
 userRoutes.patch(
   "/:id",
   authenticate,
@@ -59,6 +65,7 @@ userRoutes.patch(
     ),
 );
 
+// soft delete user
 userRoutes.delete("/:id", authenticate, canAccess("admin"), (c) =>
   userController.softDeleteUser(c, c.req.param("id")),
 );

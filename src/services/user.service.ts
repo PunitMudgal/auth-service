@@ -79,15 +79,16 @@ export class UserService {
       throw new ForbiddenError("Access denied");
     }
 
-    // Managers may only filter their tenant's customers and staff
+    // Managers may only filter their tenant's manager/staff/customer users
     if (
       caller.role === "manager" &&
       role &&
+      role !== "manager" &&
       role !== "customer" &&
       role !== "staff"
     ) {
       throw new ForbiddenError(
-        "Managers can only filter by customer or staff roles",
+        "Managers can only filter by manager, customer or staff roles",
       );
     }
 
@@ -121,16 +122,35 @@ export class UserService {
       isActive !== undefined ? eq(users.isActive, isActive) : undefined,
     );
 
-    const [items, totalRows] = await Promise.all([
+    const [rows, totalRows] = await Promise.all([
       db
-        .select(userSelect)
+        .select({
+          user: userSelect,
+          tenant: {
+            id: tenants.id,
+            name: tenants.name,
+            location: tenants.location,
+          },
+        })
         .from(users)
+        .leftJoin(tenants, eq(users.tenantId, tenants.id))
         .where(where)
         .orderBy(desc(users.createdAt))
         .limit(limit)
         .offset((page - 1) * limit),
       db.select({ count: count() }).from(users).where(where),
     ]);
+
+    const items = rows.map(({ user, tenant }) => ({
+      ...user,
+      tenant: tenant?.id
+        ? {
+            id: tenant.id,
+            name: tenant.name,
+            location: tenant.location,
+          }
+        : null,
+    }));
 
     const total = totalRows[0]?.count ?? 0;
 
@@ -169,7 +189,9 @@ export class UserService {
     const [user] = await db
       .select(userSelect)
       .from(users)
-      .where(and(eq(users.email, email.toLowerCase()), isNull(users.deletedAt)));
+      .where(
+        and(eq(users.email, email.toLowerCase()), isNull(users.deletedAt)),
+      );
 
     if (!user) {
       throw new NotFoundError("User not found");
@@ -209,7 +231,10 @@ export class UserService {
     };
 
     if (body.password) {
-      values.password = await bcrypt.hash(body.password, Config.auth.bcryptCost);
+      values.password = await bcrypt.hash(
+        body.password,
+        Config.auth.bcryptCost,
+      );
     }
 
     const [user] = await db
