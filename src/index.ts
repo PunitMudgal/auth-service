@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { logger as honoLogger } from "hono/logger";
 import { Config } from "./config";
 import authRoutes from "./routes/auth.route";
+import healthRoutes from "./routes/health.route";
 import tenantRoutes from "./routes/tenant.route";
 import userRoutes from "./routes/user.route";
 import { logger } from "./utils/logger";
@@ -23,6 +24,7 @@ app.get("/", (c) => {
 });
 
 // routes
+app.route("/health", healthRoutes);
 app.route("/auth", authRoutes);
 app.route("/tenant", tenantRoutes);
 app.route("/user", userRoutes);

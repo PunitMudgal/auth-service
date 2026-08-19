@@ -4,6 +4,45 @@ import { logger } from "../utils/logger";
 
 const resend = new Resend(Config.email.resendApiKey);
 
+/**
+ * Health check for the Resend email service.
+ * Verifies the API key is configured and the Resend API is reachable.
+ */
+export async function checkEmailServiceHealth() {
+  const hasApiKey = !!Config.email.resendApiKey;
+
+  if (!hasApiKey) {
+    return {
+      status: "unhealthy" as const,
+      message: "RESEND_API_KEY is not configured",
+    };
+  }
+
+  try {
+    // Use domains.list as a lightweight probe to verify the API key is valid
+    const { error } = await resend.domains.list();
+
+    if (error) {
+      logger.error({ error }, "Email service health check failed");
+      return {
+        status: "unhealthy" as const,
+        message: error.message || "Resend API returned an error",
+      };
+    }
+
+    return {
+      status: "healthy" as const,
+      message: "Resend email service is reachable",
+    };
+  } catch (error) {
+    logger.error({ error }, "Email service health check failed");
+    return {
+      status: "unhealthy" as const,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 interface SendEmailParams {
   to: string;
   subject: string;
