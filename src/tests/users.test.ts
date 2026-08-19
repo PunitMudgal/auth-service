@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from "bun:test";
 import * as bcrypt from "bcrypt";
 import app from "../index";
 import { db, pool } from "../db/connection";
-import { tenants, users } from "../db/schema";
+import { tenants, users, passwordResetTokens } from "../db/schema";
 import { Config } from "../config";
 import { generateAccessToken } from "../utils/jwt";
 import { eq } from "drizzle-orm";
@@ -158,6 +158,38 @@ describe.serial("Users API", () => {
         status: 201,
       });
       expect(data.data.user.password).toBeUndefined();
+    });
+
+    it("should create a password reset token when a user is created", async () => {
+      const payload = {
+        firstName: "Welcome",
+        lastName: "User",
+        email: "welcome-user@gmail.com",
+        password: "its@secret",
+        tenantId,
+        role: "staff",
+      };
+
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      expect(response.status).toBe(201);
+      const data = await response.json();
+
+      const [token] = await db
+        .select()
+        .from(passwordResetTokens)
+        .where(eq(passwordResetTokens.userId, data.data.user.id));
+
+      expect(token).toBeDefined();
+      expect(token?.usedAt).toBeNull();
+      expect(token?.expiresAt.getTime()).toBeGreaterThan(Date.now());
     });
 
     it("should default role to customer when role is omitted", async () => {

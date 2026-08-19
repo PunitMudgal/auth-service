@@ -1,5 +1,8 @@
 import { Context } from "hono";
+import { AuthService } from "../services/auth.service";
+import { sendWelcomeEmail } from "../services/email.service";
 import { UserService } from "../services/user.service";
+import { logger } from "../utils/logger";
 import type {
   CreateUserBody,
   UpdateUserBody,
@@ -8,14 +11,32 @@ import type {
 
 export class UserController {
   private userService: UserService;
+  private authService: AuthService;
 
-  constructor(userService: UserService) {
+  constructor(userService: UserService, authService: AuthService) {
     this.userService = userService;
+    this.authService = authService;
   }
 
   async createUser(c: Context, body: CreateUserBody) {
     const caller = c.get("user");
     const user = await this.userService.createUser(body, caller);
+
+    const reset = await this.authService.createPasswordResetToken(user.email);
+    if (reset) {
+      const result = await sendWelcomeEmail(
+        user.email,
+        reset.token,
+        user.firstName,
+      );
+      if (!result.success) {
+        logger.error(
+          { email: user.email, error: result.error },
+          "Failed to send welcome email",
+        );
+      }
+    }
+
     return c.json(
       {
         success: true,

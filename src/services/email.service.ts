@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { Config } from "../config";
 import { logger } from "../utils/logger";
 import PasswordResetEmail from "../emails/password-reset";
+import WelcomeEmail from "../emails/welcome";
 
 const resend = new Resend(Config.email.resendApiKey);
 
@@ -114,5 +115,22 @@ export async function sendPasswordResetEmail(
     to,
     subject: "Reset Your Password",
     react: PasswordResetEmail({ resetUrl, userName }),
+  });
+}
+
+/**
+ * Send a welcome email with a password-set link for newly created users.
+ */
+export async function sendWelcomeEmail(
+  to: string,
+  resetToken: string,
+  userName?: string,
+) {
+  const resetUrl = `${Config.frontendUrl}/reset-password?token=${resetToken}`;
+
+  return sendReactEmail({
+    to,
+    subject: "Welcome — set your password",
+    react: WelcomeEmail({ resetUrl, userName }),
   });
 }

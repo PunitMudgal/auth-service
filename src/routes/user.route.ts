@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { UserController } from "../controllers/user.controller";
+import { AuthService } from "../services/auth.service";
 import { UserService } from "../services/user.service";
 import {
   CreateUserBody,
@@ -15,7 +16,7 @@ import { canAccess } from "../middleware/can-access";
 import { authenticate } from "../middleware/auth";
 
 const userRoutes = new Hono();
-const userController = new UserController(new UserService());
+const userController = new UserController(new UserService(), new AuthService());
 
 // Create a new user
 userRoutes.post(
