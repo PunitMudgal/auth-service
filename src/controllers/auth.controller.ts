@@ -132,12 +132,12 @@ export class AuthController {
   }
 
   async forgotPassword(c: Context, body: ForgotPasswordBody) {
-    const rawToken = await this.authService.createPasswordResetToken(body.email);
+    const result = await this.authService.createPasswordResetToken(body.email);
 
     // Always respond the same way so callers can't tell whether an email is
     // registered. In production, the token is emailed to the user.
-    if (rawToken) {
-      await sendPasswordResetEmail(body.email, rawToken);
+    if (result) {
+      await sendPasswordResetEmail(body.email, result.token, result.firstName);
     }
 
     return c.json(

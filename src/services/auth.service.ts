@@ -229,9 +229,9 @@ export class AuthService {
    * production would be emailed to the user) or null when no active user exists
    * so callers can respond without leaking whether an email is registered.
    */
-  async createPasswordResetToken(email: string): Promise<string | null> {
+  async createPasswordResetToken(email: string): Promise<{ token: string; firstName?: string } | null> {
     const [user] = await db
-      .select({ id: users.id })
+      .select({ id: users.id, firstName: users.firstName })
       .from(users)
       .where(and(eq(users.email, email), isNull(users.deletedAt)));
 
@@ -248,7 +248,7 @@ export class AuthService {
       expiresAt: new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS),
     });
 
-    return rawToken;
+    return { token: rawToken, firstName: user.firstName ?? undefined };
   }
 
   /**
