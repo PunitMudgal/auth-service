@@ -11,6 +11,7 @@ import { resetPasswordSchema } from "../config/password-reset.schema";
 import type { ResetPasswordBody } from "../config/password-reset.schema";
 import { validateBody } from "../middleware/validate-body";
 import { authenticate } from "../middleware/auth";
+import { canAccess } from "../middleware/can-access";
 const authRoutes = new Hono();
 const authController = new AuthController(new AuthService());
 
@@ -42,6 +43,34 @@ authRoutes.get("/sessions", authenticate, (c) => authController.getSessions(c));
 
 authRoutes.delete("/sessions/:id", authenticate, (c) =>
   authController.revokeSession(c, c.req.param("id")),
+);
+
+// ─── Admin session management ─────────────────────────────────────────
+
+authRoutes.get(
+  "/admin/users/:userId/sessions",
+  authenticate,
+  canAccess("admin"),
+  (c) => authController.adminGetUserSessions(c, c.req.param("userId")),
+);
+
+authRoutes.delete(
+  "/admin/users/:userId/sessions/:sessionId",
+  authenticate,
+  canAccess("admin"),
+  (c) =>
+    authController.adminRevokeUserSession(
+      c,
+      c.req.param("userId"),
+      c.req.param("sessionId"),
+    ),
+);
+
+authRoutes.delete(
+  "/admin/users/:userId/sessions",
+  authenticate,
+  canAccess("admin"),
+  (c) => authController.adminRevokeAllUserSessions(c, c.req.param("userId")),
 );
 
 export default authRoutes;

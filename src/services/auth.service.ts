@@ -6,6 +6,7 @@ import type { LoginUser, RegisterUser, UserRole } from "../types";
 import * as bcrypt from "bcrypt";
 import {
   ConflictError,
+  NotFoundError,
   UnauthorizedError,
 } from "../utils/errors";
 import { hashToken } from "../utils/jwt";
@@ -377,5 +378,96 @@ export class AuthService {
     } catch (error) {
       logger.warn({ error }, "Refresh token cleanup failed");
     }
+  }
+
+  // ─── Admin session management ───────────────────────────────────────
+
+  /**
+   * Admin: list all sessions (active + revoked) for any user.
+   */
+  async adminGetUserSessions(userId: string) {
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user) {
+      throw new NotFoundError("User not found");
+    }
+
+    const sessions = await db
+      .select({
+        id: refreshTokens.id,
+        deviceName: refreshTokens.deviceName,
+        ipAddress: refreshTokens.ipAddress,
+        userAgent: refreshTokens.userAgent,
+        createdAt: refreshTokens.createdAt,
+        lastUsedAt: refreshTokens.lastUsedAt,
+        expiresAt: refreshTokens.expiresAt,
+        revokedAt: refreshTokens.revokedAt,
+      })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.userId, userId))
+      .orderBy(desc(refreshTokens.lastUsedAt));
+
+    return sessions;
+  }
+
+  /**
+   * Admin: revoke a single session for any user.
+   */
+  async adminRevokeUserSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<boolean> {
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user) {
+      throw new NotFoundError("User not found");
+    }
+
+    const [result] = await db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(refreshTokens.id, sessionId),
+          eq(refreshTokens.userId, userId),
+          isNull(refreshTokens.revokedAt),
+        ),
+      )
+      .returning({ id: refreshTokens.id });
+
+    return result !== undefined;
+  }
+
+  /**
+   * Admin: revoke all active sessions for a user.
+   */
+  async adminRevokeAllUserSessions(userId: string): Promise<number> {
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user) {
+      throw new NotFoundError("User not found");
+    }
+
+    const results = await db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(refreshTokens.userId, userId),
+          isNull(refreshTokens.revokedAt),
+        ),
+      )
+      .returning({ id: refreshTokens.id });
+
+    return results.length;
   }
 }

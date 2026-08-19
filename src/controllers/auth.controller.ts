@@ -288,4 +288,58 @@ export class AuthController {
       status: 200,
     });
   }
+
+  // ─── Admin session management ───────────────────────────────────────
+
+  /**
+   * Admin: list all sessions for any user.
+   */
+  async adminGetUserSessions(c: Context, userId: string) {
+    const sessions = await this.authService.adminGetUserSessions(userId);
+
+    return c.json({
+      success: true,
+      message: "Sessions fetched successfully",
+      data: { items: sessions },
+      status: 200,
+    });
+  }
+
+  /**
+   * Admin: revoke a single session for any user.
+   */
+  async adminRevokeUserSession(
+    c: Context,
+    userId: string,
+    sessionId: string,
+  ) {
+    const revoked = await this.authService.adminRevokeUserSession(
+      userId,
+      sessionId,
+    );
+
+    if (!revoked) {
+      throw new NotFoundError("Session not found or already revoked");
+    }
+
+    return c.json({
+      success: true,
+      message: "Session revoked successfully",
+      status: 200,
+    });
+  }
+
+  /**
+   * Admin: revoke all sessions for a user.
+   */
+  async adminRevokeAllUserSessions(c: Context, userId: string) {
+    const count = await this.authService.adminRevokeAllUserSessions(userId);
+
+    return c.json({
+      success: true,
+      message: `${count} session(s) revoked successfully`,
+      data: { revokedCount: count },
+      status: 200,
+    });
+  }
 }
