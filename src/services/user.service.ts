@@ -2,10 +2,13 @@ import { and, count, desc, eq, ilike, isNull, ne, or } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import { db } from "../db/connection";
 import { refreshTokens, tenants, users } from "../db/schema";
-import type { CreateUser, UserRole } from "../types";
+import type { CreateUser, JWTPayload, UserRole } from "../types";
 import type { UpdateUserBody, UserListQuery } from "../config/user.schema";
 import { Config } from "../config";
 import { ConflictError, ForbiddenError, NotFoundError } from "../utils/errors";
+
+type Caller = Pick<JWTPayload, "sub" | "role" | "tenantId">;
+type TargetUser = { id: string; role: UserRole; tenantId: string | null };
 
 const userSelect = {
   id: users.id,
@@ -186,24 +189,10 @@ export class UserService {
     };
   }
 
-  async getUserById(id: string) {
-    const [result] = await db
-      .select({
-        user: userSelect,
-        tenant: tenantSelect,
-      })
-      .from(users)
-      .leftJoin(tenants, eq(users.tenantId, tenants.id))
-      .where(and(eq(users.id, id), isNull(users.deletedAt)));
-
-    if (!result) {
-      throw new NotFoundError("User not found");
-    }
-
-    return {
-      ...result.user,
-      tenant: result.tenant?.id ? result.tenant : null,
-    };
+  async getUserById(id: string, caller: Caller) {
+    const target = await this.loadUser(id);
+    this.assertCanGet(caller, target);
+    return target;
   }
 
   async getUserByEmail(email: string) {
@@ -221,14 +210,12 @@ export class UserService {
     return user;
   }
 
-  async updateUser(id: string, body: UpdateUserBody) {
-    const [existing] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.id, id), isNull(users.deletedAt)));
+  async updateUser(id: string, body: UpdateUserBody, caller: Caller) {
+    const target = await this.loadUser(id);
+    this.assertCanUpdate(caller, target);
 
-    if (!existing) {
-      throw new NotFoundError("User not found");
+    if (caller.role !== "admin" && body.role !== undefined) {
+      throw new ForbiddenError("Only admins can change roles");
     }
 
     if (body.email) {
@@ -247,7 +234,6 @@ export class UserService {
       ...(body.lastName !== undefined && { lastName: body.lastName }),
       ...(body.email !== undefined && { email: body.email }),
       ...(body.role !== undefined && { role: body.role }),
-      ...(body.isActive !== undefined && { isActive: body.isActive }),
       updatedAt: new Date(),
     };
 
@@ -267,25 +253,28 @@ export class UserService {
     return user;
   }
 
-  async softDeleteUser(id: string) {
-    const [existing] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.id, id), isNull(users.deletedAt)));
-
-    if (!existing) {
-      throw new NotFoundError("User not found");
-    }
+  async deactivateUser(id: string, caller: Caller) {
+    const target = await this.loadUser(id);
+    this.assertCanDeactivate(caller, target);
 
     const now = new Date();
+    await this.revokeSessions(id, now);
 
-    // Revoke all active sessions so the soft-deleted user can no longer refresh tokens
-    await db
-      .update(refreshTokens)
-      .set({ revokedAt: now })
-      .where(
-        and(eq(refreshTokens.userId, id), isNull(refreshTokens.revokedAt)),
-      );
+    const [user] = await db
+      .update(users)
+      .set({ isActive: false, updatedAt: now })
+      .where(eq(users.id, id))
+      .returning(userSelect);
+
+    return user;
+  }
+
+  async softDeleteUser(id: string, caller: Caller) {
+    const target = await this.loadUser(id);
+    this.assertCanDelete(caller, target);
+
+    const now = new Date();
+    await this.revokeSessions(id, now);
 
     const [user] = await db
       .update(users)
@@ -294,5 +283,76 @@ export class UserService {
       .returning(userSelect);
 
     return user;
+  }
+
+  private async loadUser(id: string) {
+    const [result] = await db
+      .select({
+        user: userSelect,
+        tenant: tenantSelect,
+      })
+      .from(users)
+      .leftJoin(tenants, eq(users.tenantId, tenants.id))
+      .where(and(eq(users.id, id), isNull(users.deletedAt)));
+
+    if (!result) {
+      throw new NotFoundError("User not found");
+    }
+
+    return {
+      ...result.user,
+      tenant: result.tenant?.id ? result.tenant : null,
+    };
+  }
+
+  private async revokeSessions(userId: string, now: Date) {
+    await db
+      .update(refreshTokens)
+      .set({ revokedAt: now })
+      .where(
+        and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)),
+      );
+  }
+
+  private assertCanGet(caller: Caller, target: TargetUser) {
+    if (caller.role === "admin" || caller.sub === target.id) return;
+    if (this.isManagerOf(caller, target) && target.role === "staff") return;
+    throw new ForbiddenError("Access denied");
+  }
+
+  private assertCanUpdate(caller: Caller, target: TargetUser) {
+    if (caller.role === "admin" || caller.sub === target.id) return;
+    if (this.isManagerOf(caller, target) && target.role === "staff") return;
+    throw new ForbiddenError("Access denied");
+  }
+
+  private assertCanDelete(caller: Caller, target: TargetUser) {
+    if (caller.role === "admin" || caller.sub === target.id) return;
+    if (
+      this.isManagerOf(caller, target) &&
+      (target.role === "staff" || target.role === "customer")
+    ) {
+      return;
+    }
+    throw new ForbiddenError("Access denied");
+  }
+
+  private assertCanDeactivate(caller: Caller, target: TargetUser) {
+    if (caller.role === "admin") return;
+    if (
+      this.isManagerOf(caller, target) &&
+      (target.role === "staff" || target.role === "customer")
+    ) {
+      return;
+    }
+    throw new ForbiddenError("Access denied");
+  }
+
+  private isManagerOf(caller: Caller, target: TargetUser) {
+    return (
+      caller.role === "manager" &&
+      Boolean(caller.tenantId) &&
+      caller.tenantId === target.tenantId
+    );
   }
 }

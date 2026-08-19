@@ -42,8 +42,8 @@ export class UserController {
   }
 
   async getSelf(c: Context) {
-    const { sub } = c.get("user");
-    const user = await this.userService.getUserById(sub);
+    const caller = c.get("user");
+    const user = await this.userService.getUserById(caller.sub, caller);
     return c.json(
       {
         success: true,
@@ -56,7 +56,8 @@ export class UserController {
   }
 
   async getUserById(c: Context, id: string) {
-    const user = await this.userService.getUserById(id);
+    const caller = c.get("user");
+    const user = await this.userService.getUserById(id, caller);
     return c.json(
       {
         success: true,
@@ -82,7 +83,8 @@ export class UserController {
   }
 
   async updateUser(c: Context, id: string, body: UpdateUserBody) {
-    const user = await this.userService.updateUser(id, body);
+    const caller = c.get("user");
+    const user = await this.userService.updateUser(id, body, caller);
     return c.json(
       {
         success: true,
@@ -94,8 +96,23 @@ export class UserController {
     );
   }
 
+  async deactivateUser(c: Context, id: string) {
+    const caller = c.get("user");
+    const user = await this.userService.deactivateUser(id, caller);
+    return c.json(
+      {
+        success: true,
+        message: "User deactivated successfully",
+        data: { user },
+        status: 200,
+      },
+      200,
+    );
+  }
+
   async softDeleteUser(c: Context, id: string) {
-    await this.userService.softDeleteUser(id);
+    const caller = c.get("user");
+    await this.userService.softDeleteUser(id, caller);
     return c.json(
       {
         success: true,

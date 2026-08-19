@@ -43,11 +43,19 @@ userRoutes.get("/email/:email", authenticate, canAccess("admin"), (c) =>
   userController.getUserByEmail(c, c.req.param("email")),
 );
 
+// deactivate user
+userRoutes.patch(
+  "/:id/inactive",
+  authenticate,
+  canAccess("admin", "manager"),
+  (c) => userController.deactivateUser(c, c.req.param("id")),
+);
+
 // get user by id
 userRoutes.get(
   "/:id",
   authenticate,
-  canAccess("admin", { allowSelf: true }),
+  canAccess("admin", "manager", { allowSelf: true }),
   (c) => userController.getUserById(c, c.req.param("id")),
 );
 
@@ -55,7 +63,7 @@ userRoutes.get(
 userRoutes.patch(
   "/:id",
   authenticate,
-  canAccess("admin"),
+  canAccess("admin", "manager", { allowSelf: true }),
   validateBody(updateUserSchema),
   (c) =>
     userController.updateUser(
@@ -66,8 +74,11 @@ userRoutes.patch(
 );
 
 // soft delete user
-userRoutes.delete("/:id", authenticate, canAccess("admin"), (c) =>
-  userController.softDeleteUser(c, c.req.param("id")),
+userRoutes.delete(
+  "/:id",
+  authenticate,
+  canAccess("admin", "manager", { allowSelf: true }),
+  (c) => userController.softDeleteUser(c, c.req.param("id")),
 );
 
 export default userRoutes;

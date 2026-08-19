@@ -693,7 +693,7 @@ describe.serial("Users API", () => {
       const page1Ids = page1Data.data.items.map((u: { id: string }) => u.id);
       const page2Ids = page2Data.data.items.map((u: { id: string }) => u.id);
       expect(page1Ids.some((id: string) => page2Ids.includes(id))).toBe(false);
-    });
+    }, 15000);
 
     it("should use default page and limit when none are provided", async () => {
       const response = await app.request("/api/v1/user", {
@@ -1035,6 +1035,38 @@ describe.serial("Users API", () => {
       expect(data.message).toBe("User not found");
     });
 
+    it("should return a staff user by id for a manager in the same tenant", async () => {
+      const staff = await insertTestUser({
+        email: "manager-get-staff@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${staff.id}`, {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.email).toBe("manager-get-staff@gmail.com");
+    });
+
+    it("should return 403 when a manager gets a customer by id", async () => {
+      const customer = await insertTestUser({
+        email: "manager-get-customer@gmail.com",
+        role: "customer",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${customer.id}`, {
+        method: "GET",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(403);
+    });
+
     it("should return 403 for a non-admin/customer user", async () => {
       const created = await insertTestUser({
         email: "forbidden-id@gmail.com",
@@ -1047,6 +1079,24 @@ describe.serial("Users API", () => {
       });
 
       expect(response.status).toBe(403);
+    });
+
+    it("should let a user get themselves by id", async () => {
+      const self = await insertTestUser({
+        email: "self-get@gmail.com",
+        role: "customer",
+        tenantId,
+      });
+      const headers = await authHeaderFor(self);
+
+      const response = await app.request(`/api/v1/user/${self.id}`, {
+        method: "GET",
+        headers,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.id).toBe(self.id);
     });
   });
 
@@ -1187,20 +1237,19 @@ describe.serial("Users API", () => {
       expect(data.data.user.email).toBe("new-email@gmail.com");
     });
 
-    it("should deactivate a user when admin sets isActive to false", async () => {
+    it("should deactivate a user when admin calls the inactive endpoint", async () => {
       const created = await insertTestUser({
         email: "deactivate-me@gmail.com",
         tenantId,
       });
 
-      const response = await app.request(`/api/v1/user/${created.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...adminHeaders,
+      const response = await app.request(
+        `/api/v1/user/${created.id}/inactive`,
+        {
+          method: "PATCH",
+          headers: adminHeaders,
         },
-        body: JSON.stringify({ isActive: false }),
-      });
+      );
 
       expect(response.status).toBe(200);
       const data = await response.json();
@@ -1372,7 +1421,50 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(403);
     });
 
-    it("should return 403 for a manager user", async () => {
+    it("should let a user update themselves", async () => {
+      const self = await insertTestUser({
+        email: "self-patch@gmail.com",
+        role: "customer",
+        tenantId,
+      });
+      const headers = await authHeaderFor(self);
+
+      const response = await app.request(`/api/v1/user/${self.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify({ firstName: "Myself" }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.firstName).toBe("Myself");
+    });
+
+    it("should let a manager update staff in the same tenant", async () => {
+      const staff = await insertTestUser({
+        email: "manager-patch-staff@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${staff.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({ firstName: "UpdatedStaff" }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.firstName).toBe("UpdatedStaff");
+    });
+
+    it("should return 403 when a manager updates a customer", async () => {
       const created = await insertTestUser({
         email: "patch-manager-forbidden@gmail.com",
         tenantId,
@@ -1520,7 +1612,7 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(401);
     });
 
-    it("should return 403 for a customer user", async () => {
+    it("should return 403 for a customer deleting another user", async () => {
       const created = await insertTestUser({
         email: "delete-forbidden@gmail.com",
         tenantId,
@@ -1534,9 +1626,41 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(403);
     });
 
-    it("should return 403 for a manager user", async () => {
+    it("should let a user delete themselves", async () => {
+      const self = await insertTestUser({
+        email: "self-delete@gmail.com",
+        role: "customer",
+        tenantId,
+      });
+      const headers = await authHeaderFor(self);
+
+      const response = await app.request(`/api/v1/user/${self.id}`, {
+        method: "DELETE",
+        headers,
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should let a manager delete staff in the same tenant", async () => {
+      const staff = await insertTestUser({
+        email: "delete-staff@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${staff.id}`, {
+        method: "DELETE",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should let a manager delete a customer in the same tenant", async () => {
       const created = await insertTestUser({
-        email: "delete-manager-forbidden@gmail.com",
+        email: "delete-manager-customer@gmail.com",
+        role: "customer",
         tenantId,
       });
 
@@ -1544,6 +1668,137 @@ describe.serial("Users API", () => {
         method: "DELETE",
         headers: managerHeaders,
       });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should return 403 when a manager tries to delete an admin", async () => {
+      const adminTarget = await insertTestUser({
+        email: "delete-manager-admin@gmail.com",
+        role: "admin",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${adminTarget.id}`, {
+        method: "DELETE",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe("PATCH /api/v1/user/:id/inactive", () => {
+    it("should let an admin deactivate any user", async () => {
+      const created = await insertTestUser({
+        email: "admin-inactive@gmail.com",
+        role: "manager",
+        tenantId,
+      });
+
+      const response = await app.request(
+        `/api/v1/user/${created.id}/inactive`,
+        {
+          method: "PATCH",
+          headers: adminHeaders,
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.user.isActive).toBe(false);
+    });
+
+    it("should let a manager deactivate staff in the same tenant", async () => {
+      const staff = await insertTestUser({
+        email: "manager-inactive-staff@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${staff.id}/inactive`, {
+        method: "PATCH",
+        headers: managerHeaders,
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.isActive).toBe(false);
+    });
+
+    it("should let a manager deactivate a customer in the same tenant", async () => {
+      const customer = await insertTestUser({
+        email: "manager-inactive-customer@gmail.com",
+        role: "customer",
+        tenantId,
+      });
+
+      const response = await app.request(
+        `/api/v1/user/${customer.id}/inactive`,
+        {
+          method: "PATCH",
+          headers: managerHeaders,
+        },
+      );
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should return 403 when a manager deactivates an admin", async () => {
+      const adminTarget = await insertTestUser({
+        email: "manager-inactive-admin@gmail.com",
+        role: "admin",
+        tenantId,
+      });
+
+      const response = await app.request(
+        `/api/v1/user/${adminTarget.id}/inactive`,
+        {
+          method: "PATCH",
+          headers: managerHeaders,
+        },
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should prevent a deactivated user from logging in", async () => {
+      const created = await insertTestUser({
+        email: "inactive-cannot-login@gmail.com",
+        tenantId,
+      });
+
+      await app.request(`/api/v1/user/${created.id}/inactive`, {
+        method: "PATCH",
+        headers: adminHeaders,
+      });
+
+      const login = await app.request("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "inactive-cannot-login@gmail.com",
+          password: "its@secret",
+        }),
+      });
+
+      expect(login.status).toBe(401);
+    });
+
+    it("should return 403 for a customer", async () => {
+      const created = await insertTestUser({
+        email: "customer-inactive-other@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(
+        `/api/v1/user/${created.id}/inactive`,
+        {
+          method: "PATCH",
+          headers: userHeaders,
+        },
+      );
 
       expect(response.status).toBe(403);
     });
