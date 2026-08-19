@@ -21,7 +21,7 @@ const userController = new UserController(new UserService());
 userRoutes.post(
   "/",
   authenticate,
-  canAccess("admin"),
+  canAccess("admin", "manager"),
   validateBody(createUserSchema),
   (c) => userController.createUser(c, c.req.valid("json") as CreateUserBody),
 );

@@ -203,6 +203,121 @@ describe.serial("Users API", () => {
       expect(data.data.user.role).toBe("manager");
     });
 
+    it("should create a staff user when admin provides valid data", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "Staff",
+          lastName: "User",
+          email: "staffrole@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "staff",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const data = await response.json();
+      expect(data.data.user.role).toBe("staff");
+    });
+
+    it("should create an admin user when admin provides valid data", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "Another",
+          lastName: "Admin",
+          email: "anotheradmin@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "admin",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const data = await response.json();
+      expect(data.data.user.role).toBe("admin");
+    });
+
+    it("should create a user in any tenant when admin provides valid data", async () => {
+      const otherTenant = await createTestTenant("other-tenant");
+
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "Other",
+          lastName: "Tenant",
+          email: "othertenant@gmail.com",
+          password: "its@secret",
+          tenantId: otherTenant.id,
+          role: "staff",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const data = await response.json();
+      expect(data.data.user.tenantId).toBe(otherTenant.id);
+      expect(data.data.user.role).toBe("staff");
+    });
+
+    it("should create a manager in the same tenant when a manager provides valid data", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "Peer",
+          lastName: "Manager",
+          email: "peermanager@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "manager",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const data = await response.json();
+      expect(data.data.user.role).toBe("manager");
+      expect(data.data.user.tenantId).toBe(tenantId);
+    });
+
+    it("should create a staff user in the same tenant when a manager provides valid data", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "New",
+          lastName: "Staff",
+          email: "newstaff@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "staff",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const data = await response.json();
+      expect(data.data.user.role).toBe("staff");
+      expect(data.data.user.tenantId).toBe(tenantId);
+    });
+
     it("should return 401 when no access token is provided", async () => {
       const response = await app.request("/api/v1/user", {
         method: "POST",
@@ -223,7 +338,7 @@ describe.serial("Users API", () => {
       expect(data.success).toBe(false);
     });
 
-    it("should return 403 when a non-admin/customer tries to create a user", async () => {
+    it("should return 403 when a customer tries to create a user", async () => {
       const response = await app.request("/api/v1/user", {
         method: "POST",
         headers: {
@@ -242,6 +357,95 @@ describe.serial("Users API", () => {
       expect(response.status).toBe(403);
       const data = await response.json();
       expect(data.success).toBe(false);
+    });
+
+    it("should return 403 when a staff user tries to create a user", async () => {
+      const staff = await insertTestUser({
+        email: "staff-create@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+      const staffHeaders = await authHeaderFor(staff);
+
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...staffHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "New",
+          lastName: "User",
+          email: "staffcreated@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "staff",
+        }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 when a manager tries to create a customer", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "New",
+          lastName: "Customer",
+          email: "managercustomer@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "customer",
+        }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 when a manager tries to create an admin", async () => {
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "New",
+          lastName: "Admin",
+          email: "manageradmin@gmail.com",
+          password: "its@secret",
+          tenantId,
+          role: "admin",
+        }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 when a manager tries to create a user in another tenant", async () => {
+      const otherTenant = await createTestTenant("manager-other-tenant");
+
+      const response = await app.request("/api/v1/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({
+          firstName: "Other",
+          lastName: "Staff",
+          email: "otherstaff@gmail.com",
+          password: "its@secret",
+          tenantId: otherTenant.id,
+          role: "staff",
+        }),
+      });
+
+      expect(response.status).toBe(403);
     });
 
     it("should return 400 when tenantId is missing", async () => {

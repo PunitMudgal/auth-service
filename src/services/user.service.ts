@@ -29,14 +29,35 @@ const tenantSelect = {
 };
 
 export class UserService {
-  async createUser({
-    email,
-    password,
-    firstName,
-    lastName,
-    tenantId,
-    role = "customer",
-  }: CreateUser) {
+  async createUser(
+    {
+      email,
+      password,
+      firstName,
+      lastName,
+      tenantId,
+      role = "customer",
+    }: CreateUser,
+    caller: { role: UserRole; tenantId: string | null },
+  ) {
+    if (caller.role !== "admin" && caller.role !== "manager") {
+      throw new ForbiddenError("Access denied");
+    }
+
+    if (caller.role === "manager") {
+      if (!caller.tenantId || tenantId !== caller.tenantId) {
+        throw new ForbiddenError(
+          "Managers can only create users in their own tenant",
+        );
+      }
+
+      if (role !== "manager" && role !== "staff") {
+        throw new ForbiddenError(
+          "Managers can only create manager or staff users",
+        );
+      }
+    }
+
     const [tenant] = await db
       .select({ id: tenants.id })
       .from(tenants)

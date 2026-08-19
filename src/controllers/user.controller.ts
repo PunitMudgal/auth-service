@@ -14,7 +14,8 @@ export class UserController {
   }
 
   async createUser(c: Context, body: CreateUserBody) {
-    const user = await this.userService.createUser(body);
+    const { role, tenantId } = c.get("user");
+    const user = await this.userService.createUser(body, { role, tenantId });
     return c.json(
       {
         success: true,
