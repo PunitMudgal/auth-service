@@ -16,6 +16,9 @@ const {
   JWT_ACCESS_EXPIRES_IN,
   JWT_REFRESH_EXPIRES_IN,
   JWT_BCRYPT_COST,
+  RESEND_API_KEY,
+  RESEND_FROM_EMAIL,
+  FRONTEND_URL,
 } = process.env;
 
 function parseInteger(value: string | undefined, fallback: number) {
@@ -35,4 +38,9 @@ export const Config = {
   auth: {
     bcryptCost: parseInteger(JWT_BCRYPT_COST, 12),
   },
+  email: {
+    resendApiKey: RESEND_API_KEY!,
+    fromEmail: RESEND_FROM_EMAIL || "noreply@yourdomain.com",
+  },
+  frontendUrl: FRONTEND_URL || "http://localhost:5173",
 };

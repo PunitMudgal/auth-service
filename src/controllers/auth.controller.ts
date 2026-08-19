@@ -20,6 +20,7 @@ import {
   setAuthCookies,
 } from "../utils/cookie";
 import { NotFoundError, UnauthorizedError } from "../utils/errors";
+import { sendPasswordResetEmail } from "../services/email.service";
 
 export class AuthController {
   private authService: AuthService;
@@ -134,13 +135,15 @@ export class AuthController {
     const rawToken = await this.authService.createPasswordResetToken(body.email);
 
     // Always respond the same way so callers can't tell whether an email is
-    // registered. The raw token stands in for email delivery — in production
-    // it should be sent to the user's inbox instead of returned in the body.
+    // registered. In production, the token is emailed to the user.
+    if (rawToken) {
+      await sendPasswordResetEmail(body.email, rawToken);
+    }
+
     return c.json(
       {
         success: true,
-        message: "If that email is registered, a reset token has been issued",
-        ...(rawToken ? { data: { resetToken: rawToken } } : {}),
+        message: "If that email is registered, a reset link has been sent",
         status: 200,
       },
       200,
