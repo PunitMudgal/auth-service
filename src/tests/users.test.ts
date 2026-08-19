@@ -1237,19 +1237,20 @@ describe.serial("Users API", () => {
       expect(data.data.user.email).toBe("new-email@gmail.com");
     });
 
-    it("should deactivate a user when admin calls the inactive endpoint", async () => {
+    it("should deactivate a user when admin sets isActive to false", async () => {
       const created = await insertTestUser({
         email: "deactivate-me@gmail.com",
         tenantId,
       });
 
-      const response = await app.request(
-        `/api/v1/user/${created.id}/inactive`,
-        {
-          method: "PATCH",
-          headers: adminHeaders,
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
         },
-      );
+        body: JSON.stringify({ isActive: false }),
+      });
 
       expect(response.status).toBe(200);
       const data = await response.json();
@@ -1481,6 +1482,131 @@ describe.serial("Users API", () => {
 
       expect(response.status).toBe(403);
     });
+
+    it("should let an admin deactivate any user via isActive", async () => {
+      const created = await insertTestUser({
+        email: "admin-inactive@gmail.com",
+        role: "manager",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.isActive).toBe(false);
+    });
+
+    it("should let a manager deactivate staff via isActive", async () => {
+      const staff = await insertTestUser({
+        email: "manager-inactive-staff@gmail.com",
+        role: "staff",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${staff.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.data.user.isActive).toBe(false);
+    });
+
+    it("should let a manager deactivate a customer via isActive", async () => {
+      const customer = await insertTestUser({
+        email: "manager-inactive-customer@gmail.com",
+        role: "customer",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${customer.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should return 403 when a manager deactivates an admin via isActive", async () => {
+      const adminTarget = await insertTestUser({
+        email: "manager-inactive-admin@gmail.com",
+        role: "admin",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${adminTarget.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...managerHeaders,
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should prevent a deactivated user from logging in", async () => {
+      const created = await insertTestUser({
+        email: "inactive-cannot-login@gmail.com",
+        tenantId,
+      });
+
+      await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders,
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      const login = await app.request("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "inactive-cannot-login@gmail.com",
+          password: "its@secret",
+        }),
+      });
+
+      expect(login.status).toBe(401);
+    });
+
+    it("should return 403 when a customer tries to deactivate another user", async () => {
+      const created = await insertTestUser({
+        email: "customer-inactive-other@gmail.com",
+        tenantId,
+      });
+
+      const response = await app.request(`/api/v1/user/${created.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...userHeaders,
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      expect(response.status).toBe(403);
+    });
   });
 
   describe("DELETE /api/v1/user/:id", () => {
@@ -1683,122 +1809,6 @@ describe.serial("Users API", () => {
         method: "DELETE",
         headers: managerHeaders,
       });
-
-      expect(response.status).toBe(403);
-    });
-  });
-
-  describe("PATCH /api/v1/user/:id/inactive", () => {
-    it("should let an admin deactivate any user", async () => {
-      const created = await insertTestUser({
-        email: "admin-inactive@gmail.com",
-        role: "manager",
-        tenantId,
-      });
-
-      const response = await app.request(
-        `/api/v1/user/${created.id}/inactive`,
-        {
-          method: "PATCH",
-          headers: adminHeaders,
-        },
-      );
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(data.data.user.isActive).toBe(false);
-    });
-
-    it("should let a manager deactivate staff in the same tenant", async () => {
-      const staff = await insertTestUser({
-        email: "manager-inactive-staff@gmail.com",
-        role: "staff",
-        tenantId,
-      });
-
-      const response = await app.request(`/api/v1/user/${staff.id}/inactive`, {
-        method: "PATCH",
-        headers: managerHeaders,
-      });
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.data.user.isActive).toBe(false);
-    });
-
-    it("should let a manager deactivate a customer in the same tenant", async () => {
-      const customer = await insertTestUser({
-        email: "manager-inactive-customer@gmail.com",
-        role: "customer",
-        tenantId,
-      });
-
-      const response = await app.request(
-        `/api/v1/user/${customer.id}/inactive`,
-        {
-          method: "PATCH",
-          headers: managerHeaders,
-        },
-      );
-
-      expect(response.status).toBe(200);
-    });
-
-    it("should return 403 when a manager deactivates an admin", async () => {
-      const adminTarget = await insertTestUser({
-        email: "manager-inactive-admin@gmail.com",
-        role: "admin",
-        tenantId,
-      });
-
-      const response = await app.request(
-        `/api/v1/user/${adminTarget.id}/inactive`,
-        {
-          method: "PATCH",
-          headers: managerHeaders,
-        },
-      );
-
-      expect(response.status).toBe(403);
-    });
-
-    it("should prevent a deactivated user from logging in", async () => {
-      const created = await insertTestUser({
-        email: "inactive-cannot-login@gmail.com",
-        tenantId,
-      });
-
-      await app.request(`/api/v1/user/${created.id}/inactive`, {
-        method: "PATCH",
-        headers: adminHeaders,
-      });
-
-      const login = await app.request("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "inactive-cannot-login@gmail.com",
-          password: "its@secret",
-        }),
-      });
-
-      expect(login.status).toBe(401);
-    });
-
-    it("should return 403 for a customer", async () => {
-      const created = await insertTestUser({
-        email: "customer-inactive-other@gmail.com",
-        tenantId,
-      });
-
-      const response = await app.request(
-        `/api/v1/user/${created.id}/inactive`,
-        {
-          method: "PATCH",
-          headers: userHeaders,
-        },
-      );
 
       expect(response.status).toBe(403);
     });

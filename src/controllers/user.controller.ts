@@ -14,8 +14,8 @@ export class UserController {
   }
 
   async createUser(c: Context, body: CreateUserBody) {
-    const { role, tenantId } = c.get("user");
-    const user = await this.userService.createUser(body, { role, tenantId });
+    const caller = c.get("user");
+    const user = await this.userService.createUser(body, caller);
     return c.json(
       {
         success: true,
@@ -28,8 +28,8 @@ export class UserController {
   }
 
   async getUsers(c: Context, query: UserListQuery) {
-    const { role, tenantId } = c.get("user");
-    const result = await this.userService.getUsers(query, { role, tenantId });
+    const caller = c.get("user");
+    const result = await this.userService.getUsers(query, caller);
     return c.json(
       {
         success: true,
@@ -89,20 +89,6 @@ export class UserController {
       {
         success: true,
         message: "User updated successfully",
-        data: { user },
-        status: 200,
-      },
-      200,
-    );
-  }
-
-  async deactivateUser(c: Context, id: string) {
-    const caller = c.get("user");
-    const user = await this.userService.deactivateUser(id, caller);
-    return c.json(
-      {
-        success: true,
-        message: "User deactivated successfully",
         data: { user },
         status: 200,
       },

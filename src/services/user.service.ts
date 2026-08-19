@@ -9,6 +9,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../utils/errors";
 
 type Caller = Pick<JWTPayload, "sub" | "role" | "tenantId">;
 type TargetUser = { id: string; role: UserRole; tenantId: string | null };
+type AccessAction = "read" | "update" | "delete" | "deactivate";
 
 const userSelect = {
   id: users.id,
@@ -41,7 +42,7 @@ export class UserService {
       tenantId,
       role = "customer",
     }: CreateUser,
-    caller: { role: UserRole; tenantId: string | null },
+    caller: Caller,
   ) {
     if (caller.role !== "admin" && caller.role !== "manager") {
       throw new ForbiddenError("Access denied");
@@ -53,7 +54,6 @@ export class UserService {
           "Managers can only create users in their own tenant",
         );
       }
-
       if (role !== "manager" && role !== "staff") {
         throw new ForbiddenError(
           "Managers can only create manager or staff users",
@@ -95,15 +95,12 @@ export class UserService {
 
   async getUsers(
     { page, limit, search, role, isActive }: UserListQuery,
-    caller: { role: UserRole; tenantId: string | null },
+    caller: Caller,
   ) {
-    // Route middleware already restricts access to admin/manager, but
-    // enforce it here too so the service is safe as the last line of defense.
     if (caller.role !== "admin" && caller.role !== "manager") {
       throw new ForbiddenError("Access denied");
     }
 
-    // Managers may only filter their tenant's manager/staff/customer users
     if (
       caller.role === "manager" &&
       role &&
@@ -116,7 +113,6 @@ export class UserService {
       );
     }
 
-    // A manager without a tenant (shouldn't happen) has nobody to see
     if (caller.role === "manager" && !caller.tenantId) {
       return {
         items: [],
@@ -132,7 +128,6 @@ export class UserService {
         )
       : undefined;
 
-    // Admin sees every user in the app; manager is scoped to their tenant.
     const tenantCondition =
       caller.role === "manager" && caller.tenantId
         ? eq(users.tenantId, caller.tenantId)
@@ -168,11 +163,7 @@ export class UserService {
     const items = rows.map(({ user, tenant }) => ({
       ...user,
       tenant: tenant?.id
-        ? {
-            id: tenant.id,
-            name: tenant.name,
-            location: tenant.location,
-          }
+        ? { id: tenant.id, name: tenant.name, location: tenant.location }
         : null,
     }));
 
@@ -191,7 +182,7 @@ export class UserService {
 
   async getUserById(id: string, caller: Caller) {
     const target = await this.loadUser(id);
-    this.assertCanGet(caller, target);
+    this.assertAccess(caller, target, "read");
     return target;
   }
 
@@ -212,10 +203,31 @@ export class UserService {
 
   async updateUser(id: string, body: UpdateUserBody, caller: Caller) {
     const target = await this.loadUser(id);
-    this.assertCanUpdate(caller, target);
+    const isSelf = caller.sub === target.id;
+    const { isActive, role, ...profile } = body;
 
-    if (caller.role !== "admin" && body.role !== undefined) {
+    if (isSelf && (isActive !== undefined || role !== undefined)) {
+      throw new ForbiddenError("Access denied");
+    }
+
+    if (caller.role !== "admin" && role !== undefined) {
       throw new ForbiddenError("Only admins can change roles");
+    }
+
+    const hasProfileChange = Object.keys(profile).length > 0 || role !== undefined;
+    const deactivating = isActive === false;
+    const reactivating = isActive === true;
+
+    if (hasProfileChange) {
+      this.assertAccess(caller, target, "update");
+    }
+    if (deactivating) {
+      this.assertAccess(caller, target, "deactivate");
+    }
+    if (reactivating) {
+      if (caller.role !== "admin") {
+        throw new ForbiddenError("Only admins can reactivate users");
+      }
     }
 
     if (body.email) {
@@ -229,19 +241,25 @@ export class UserService {
       }
     }
 
+    const now = new Date();
     const values: Partial<typeof users.$inferInsert> = {
-      ...(body.firstName !== undefined && { firstName: body.firstName }),
-      ...(body.lastName !== undefined && { lastName: body.lastName }),
-      ...(body.email !== undefined && { email: body.email }),
-      ...(body.role !== undefined && { role: body.role }),
-      updatedAt: new Date(),
+      ...(profile.firstName !== undefined && { firstName: profile.firstName }),
+      ...(profile.lastName !== undefined && { lastName: profile.lastName }),
+      ...(profile.email !== undefined && { email: profile.email }),
+      ...(role !== undefined && { role }),
+      ...(isActive !== undefined && { isActive }),
+      updatedAt: now,
     };
 
-    if (body.password) {
+    if (profile.password) {
       values.password = await bcrypt.hash(
-        body.password,
+        profile.password,
         Config.auth.bcryptCost,
       );
+    }
+
+    if (deactivating) {
+      await this.revokeSessions(id, now);
     }
 
     const [user] = await db
@@ -253,25 +271,9 @@ export class UserService {
     return user;
   }
 
-  async deactivateUser(id: string, caller: Caller) {
-    const target = await this.loadUser(id);
-    this.assertCanDeactivate(caller, target);
-
-    const now = new Date();
-    await this.revokeSessions(id, now);
-
-    const [user] = await db
-      .update(users)
-      .set({ isActive: false, updatedAt: now })
-      .where(eq(users.id, id))
-      .returning(userSelect);
-
-    return user;
-  }
-
   async softDeleteUser(id: string, caller: Caller) {
     const target = await this.loadUser(id);
-    this.assertCanDelete(caller, target);
+    this.assertAccess(caller, target, "delete");
 
     const now = new Date();
     await this.revokeSessions(id, now);
@@ -287,10 +289,7 @@ export class UserService {
 
   private async loadUser(id: string) {
     const [result] = await db
-      .select({
-        user: userSelect,
-        tenant: tenantSelect,
-      })
+      .select({ user: userSelect, tenant: tenantSelect })
       .from(users)
       .leftJoin(tenants, eq(users.tenantId, tenants.id))
       .where(and(eq(users.id, id), isNull(users.deletedAt)));
@@ -314,38 +313,29 @@ export class UserService {
       );
   }
 
-  private assertCanGet(caller: Caller, target: TargetUser) {
-    if (caller.role === "admin" || caller.sub === target.id) return;
-    if (this.isManagerOf(caller, target) && target.role === "staff") return;
-    throw new ForbiddenError("Access denied");
-  }
-
-  private assertCanUpdate(caller: Caller, target: TargetUser) {
-    if (caller.role === "admin" || caller.sub === target.id) return;
-    if (this.isManagerOf(caller, target) && target.role === "staff") return;
-    throw new ForbiddenError("Access denied");
-  }
-
-  private assertCanDelete(caller: Caller, target: TargetUser) {
-    if (caller.role === "admin" || caller.sub === target.id) return;
-    if (
-      this.isManagerOf(caller, target) &&
-      (target.role === "staff" || target.role === "customer")
-    ) {
-      return;
-    }
-    throw new ForbiddenError("Access denied");
-  }
-
-  private assertCanDeactivate(caller: Caller, target: TargetUser) {
+  private assertAccess(caller: Caller, target: TargetUser, action: AccessAction) {
     if (caller.role === "admin") return;
-    if (
-      this.isManagerOf(caller, target) &&
-      (target.role === "staff" || target.role === "customer")
-    ) {
-      return;
+
+    if (caller.sub === target.id) {
+      if (action === "read" || action === "update" || action === "delete") {
+        return;
+      }
+      throw new ForbiddenError("Access denied");
     }
-    throw new ForbiddenError("Access denied");
+
+    if (!this.isManagerOf(caller, target)) {
+      throw new ForbiddenError("Access denied");
+    }
+
+    if (action === "read" || action === "update") {
+      if (target.role === "staff") return;
+      throw new ForbiddenError("Access denied");
+    }
+
+    if (action === "delete" || action === "deactivate") {
+      if (target.role === "staff" || target.role === "customer") return;
+      throw new ForbiddenError("Access denied");
+    }
   }
 
   private isManagerOf(caller: Caller, target: TargetUser) {

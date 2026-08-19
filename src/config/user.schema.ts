@@ -42,6 +42,7 @@ export const updateUserSchema = z
       .max(255, { message: "Password must be at most 255 characters long" })
       .optional(),
     role: z.enum(["admin", "manager", "staff", "customer"]).optional(),
+    isActive: z.boolean().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, {
     message: "At least one field is required for update",

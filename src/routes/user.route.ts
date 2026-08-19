@@ -43,14 +43,6 @@ userRoutes.get("/email/:email", authenticate, canAccess("admin"), (c) =>
   userController.getUserByEmail(c, c.req.param("email")),
 );
 
-// deactivate user
-userRoutes.patch(
-  "/:id/inactive",
-  authenticate,
-  canAccess("admin", "manager"),
-  (c) => userController.deactivateUser(c, c.req.param("id")),
-);
-
 // get user by id
 userRoutes.get(
   "/:id",
