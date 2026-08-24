@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from "bun:test";
 import * as bcrypt from "bcrypt";
-import app from "../index";
+import app from "../app";
 import { db, pool } from "../db/connection";
 import { tenants, users } from "../db/schema";
 import { Config } from "../config";

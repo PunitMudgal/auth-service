@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from "bun:test";
-import app from "../index";
+import app from "../app";
 import { db, pool } from "../db/connection";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
