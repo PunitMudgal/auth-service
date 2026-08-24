@@ -38,4 +38,4 @@ USER app
 
 EXPOSE 3000
 
-CMD ["bun", "run", "dist/index.js"]
+CMD ["bun", "run", "dist/server.js"]

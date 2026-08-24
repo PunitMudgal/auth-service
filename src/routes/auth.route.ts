@@ -27,16 +27,12 @@ authRoutes.post("/refresh", (c) => authController.refresh(c));
 
 authRoutes.post("/logout", (c) => authController.logout(c));
 
-authRoutes.post(
-  "/forgot-password",
-  validateBody(forgotPasswordSchema),
-  (c) => authController.forgotPassword(c, c.req.valid("json") as ForgotPasswordBody),
+authRoutes.post("/forgot-password", validateBody(forgotPasswordSchema), (c) =>
+  authController.forgotPassword(c, c.req.valid("json") as ForgotPasswordBody),
 );
 
-authRoutes.post(
-  "/reset-password",
-  validateBody(resetPasswordSchema),
-  (c) => authController.resetPassword(c, c.req.valid("json") as ResetPasswordBody),
+authRoutes.post("/reset-password", validateBody(resetPasswordSchema), (c) =>
+  authController.resetPassword(c, c.req.valid("json") as ResetPasswordBody),
 );
 
 authRoutes.get("/sessions", authenticate, (c) => authController.getSessions(c));

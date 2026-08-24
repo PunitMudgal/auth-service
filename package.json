@@ -1,9 +1,10 @@
 {
   "name": "auth-service",
   "scripts": {
-    "start": "NODE_ENV=production bun run src/index.ts",
-    "dev": "NODE_ENV=development bun run --hot src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "NODE_ENV=production bun run src/server.ts",
+    "dev": "NODE_ENV=development bun run --hot src/server.ts",
+    "build": "bun build src/server.ts --outdir dist --target bun",
+    "build:vercel": "echo \"Vercel builds the Hono app automatically\"",
     "test": "NODE_ENV=test bun test",
     "typecheck": "tsc --noEmit",
     "generate": "NODE_ENV=development drizzle-kit generate",

@@ -1,12 +1,16 @@
 import { config } from "dotenv";
-import { resolve } from "path";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 const env = process.env.NODE_ENV || "development";
+const envPath = resolve(process.cwd(), `.env.${env}`);
 
-config({
-  path: resolve(__dirname, `../../.env.${env}`),
-  override: true,
-});
+if (existsSync(envPath)) {
+  config({
+    path: envPath,
+    override: true,
+  });
+}
 
 const {
   PORT,
@@ -42,5 +46,5 @@ export const Config = {
     resendApiKey: RESEND_API_KEY!,
     fromEmail: RESEND_FROM_EMAIL || "noreply@yourdomain.com",
   },
-  frontendUrl: FRONTEND_URL || "http://localhost:5173",
+  frontendUrl: FRONTEND_URL || "http://localhost:3000",
 };
