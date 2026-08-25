@@ -15,7 +15,7 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 
 COPY . .
 
-RUN bun run build
+RUN bun run build:docker
 
 FROM oven/bun:${BUN_VERSION}-alpine AS runner
 

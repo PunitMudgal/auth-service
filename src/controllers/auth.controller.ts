@@ -140,10 +140,15 @@ export class AuthController {
       await sendPasswordResetEmail(body.email, result.token, result.firstName);
     }
 
+    const exposeResetToken = process.env.NODE_ENV !== "production";
+
     return c.json(
       {
         success: true,
         message: "If that email is registered, a reset link has been sent",
+        ...(result && exposeResetToken
+          ? { data: { resetToken: result.token } }
+          : {}),
         status: 200,
       },
       200,
