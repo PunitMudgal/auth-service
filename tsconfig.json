@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "strict": true,
-    "types": ["bun"],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
     "target": "ESNext",
@@ -9,5 +8,6 @@
     "moduleResolution": "bundler",
     "skipLibCheck": true,
     "noEmit": true
-  }
+  },
+  "exclude": ["src/server.ts", "src/tests", "src/db/seed.ts", "src/db/unseed.ts"]
 }
