@@ -25,7 +25,7 @@ app.get("/", (c) => {
 });
 
 app.route("/health", healthRoutes);
-app.route("/auth", authRoutes);
+app.route("/", authRoutes);
 app.route("/tenant", tenantRoutes);
 app.route("/user", userRoutes);
 
