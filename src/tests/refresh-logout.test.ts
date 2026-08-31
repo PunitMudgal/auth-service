@@ -61,7 +61,7 @@ function getCookieValue(
 }
 
 async function loginAndGetRefreshToken() {
-  const response = await app.request("/api/v1/auth/login", {
+  const response = await app.request("/api/v1/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -84,20 +84,20 @@ async function loginAndGetRefreshToken() {
 }
 
 function refreshRequest(refreshToken: string) {
-  return app.request("/api/v1/auth/refresh", {
+  return app.request("/api/v1/refresh", {
     method: "POST",
     headers: { Cookie: `refresh_token=${refreshToken}` },
   });
 }
 
 function logoutRequest(refreshToken?: string) {
-  return app.request("/api/v1/auth/logout", {
+  return app.request("/api/v1/logout", {
     method: "POST",
     headers: refreshToken ? { Cookie: `refresh_token=${refreshToken}` } : {},
   });
 }
 
-describe("POST /api/v1/auth/refresh", () => {
+describe("POST /api/v1/refresh", () => {
   let tenantId: string;
 
   beforeAll(async () => {
@@ -204,7 +204,7 @@ describe("POST /api/v1/auth/refresh", () => {
 
   describe("Given an invalid or missing refresh token", () => {
     it("should return 401 when no refresh token is provided", async () => {
-      const response = await app.request("/api/v1/auth/refresh", {
+      const response = await app.request("/api/v1/refresh", {
         method: "POST",
       });
 
@@ -272,7 +272,7 @@ describe("POST /api/v1/auth/refresh", () => {
   });
 });
 
-describe("POST /api/v1/auth/logout", () => {
+describe("POST /api/v1/logout", () => {
   let tenantId: string;
 
   beforeAll(async () => {

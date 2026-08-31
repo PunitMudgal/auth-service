@@ -4,7 +4,7 @@ import { db, pool } from "../db/connection";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 
-describe("POST /api/v1/auth/register", () => {
+describe("POST /api/v1/register", () => {
   beforeAll(async () => {
     await pool.query("SELECT 1");
   });
@@ -22,7 +22,7 @@ describe("POST /api/v1/auth/register", () => {
         password: "its@secret",
       };
 
-      const response = await app.request("/api/v1/auth/register", {
+  const response = await app.request("/api/v1/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,7 +44,7 @@ describe("POST /api/v1/auth/register", () => {
         password: "its@secret",
       };
 
-      const response = await app.request("/api/v1/auth/register", {
+      const response = await app.request("/api/v1/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -77,7 +77,7 @@ describe("POST /api/v1/auth/register", () => {
         email: "punit@gmail.com",
         password: "its@secret",
       };
-      await app.request("/api/v1/auth/register", {
+      await app.request("/api/v1/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -96,7 +96,7 @@ describe("POST /api/v1/auth/register", () => {
 
   describe("Given missing fields", () => {
     it("should return 400 when email is missing", async () => {
-      const response = await app.request("/api/v1/auth/register", {
+      const response = await app.request("/api/v1/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -115,7 +115,7 @@ describe("POST /api/v1/auth/register", () => {
     });
 
     it("should return 400 when password is missing", async () => {
-      const response = await app.request("/api/v1/auth/register", {
+      const response = await app.request("/api/v1/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

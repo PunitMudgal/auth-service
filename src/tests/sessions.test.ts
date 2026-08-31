@@ -64,7 +64,7 @@ function getCookieValue(
 }
 
 async function loginAndGetTokens(email = "punit@gmail.com") {
-  const response = await app.request("/api/v1/auth/login", {
+  const response = await app.request("/api/v1/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -83,7 +83,7 @@ async function loginAndGetTokens(email = "punit@gmail.com") {
 }
 
 function sessionsGet(accessToken: string, refreshToken?: string) {
-  return app.request("/api/v1/auth/sessions", {
+  return app.request("/api/v1/sessions", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -97,7 +97,7 @@ function sessionsDelete(
   sessionId: string,
   refreshToken?: string,
 ) {
-  return app.request(`/api/v1/auth/sessions/${sessionId}`, {
+  return app.request(`/api/v1/sessions/${sessionId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -107,13 +107,13 @@ function sessionsDelete(
 }
 
 function refreshRequest(refreshToken: string) {
-  return app.request("/api/v1/auth/refresh", {
+  return app.request("/api/v1/refresh", {
     method: "POST",
     headers: { Cookie: `refresh_token=${refreshToken}` },
   });
 }
 
-describe("GET /api/v1/auth/sessions", () => {
+describe("GET /api/v1/sessions", () => {
   let tenantId: string;
 
   beforeAll(async () => {
@@ -129,7 +129,7 @@ describe("GET /api/v1/auth/sessions", () => {
   });
 
   it("should return 401 when no access token is provided", async () => {
-    const response = await app.request("/api/v1/auth/sessions", {
+    const response = await app.request("/api/v1/sessions", {
       method: "GET",
     });
 
@@ -226,7 +226,7 @@ describe("GET /api/v1/auth/sessions", () => {
   );
 });
 
-describe("DELETE /api/v1/auth/sessions/:id", () => {
+describe("DELETE /api/v1/sessions/:id", () => {
   let tenantId: string;
 
   beforeAll(async () => {
@@ -318,7 +318,7 @@ describe("DELETE /api/v1/auth/sessions/:id", () => {
 
   it("should return 401 when no access token is provided", async () => {
     const response = await app.request(
-      `/api/v1/auth/sessions/${crypto.randomUUID()}`,
+      `/api/v1/sessions/${crypto.randomUUID()}`,
       { method: "DELETE" },
     );
 

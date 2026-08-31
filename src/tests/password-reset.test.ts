@@ -61,7 +61,7 @@ function getCookieValue(
 }
 
 async function forgotPassword(email: string) {
-  const response = await app.request("/api/v1/auth/forgot-password", {
+  const response = await app.request("/api/v1/forgot-password", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -72,7 +72,7 @@ async function forgotPassword(email: string) {
 }
 
 async function resetPassword(token: string, newPassword: string) {
-  const response = await app.request("/api/v1/auth/reset-password", {
+  const response = await app.request("/api/v1/reset-password", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -83,7 +83,7 @@ async function resetPassword(token: string, newPassword: string) {
 }
 
 async function login(email: string, password: string) {
-  return app.request("/api/v1/auth/login", {
+  return app.request("/api/v1/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -93,13 +93,13 @@ async function login(email: string, password: string) {
 }
 
 function refreshRequest(refreshToken: string) {
-  return app.request("/api/v1/auth/refresh", {
+  return app.request("/api/v1/refresh", {
     method: "POST",
     headers: { Cookie: `refresh_token=${refreshToken}` },
   });
 }
 
-describe("POST /api/v1/auth/forgot-password", () => {
+describe("POST /api/v1/forgot-password", () => {
   let tenantId: string;
 
   beforeAll(async () => {
@@ -156,7 +156,7 @@ describe("POST /api/v1/auth/forgot-password", () => {
   });
 });
 
-describe("POST /api/v1/auth/reset-password", () => {
+describe("POST /api/v1/reset-password", () => {
   let tenantId: string;
 
   beforeAll(async () => {

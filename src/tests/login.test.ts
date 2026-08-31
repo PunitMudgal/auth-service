@@ -50,7 +50,7 @@ async function insertTestUser(
   return user;
 }
 
-describe("POST /api/v1/auth/login", () => {
+describe("POST /api/v1/login", () => {
   let tenantId: string;
 
   beforeAll(async () => {
@@ -68,7 +68,7 @@ describe("POST /api/v1/auth/login", () => {
     it("should return the 200 status code", async () => {
       await insertTestUser(tenantId);
 
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,7 +88,7 @@ describe("POST /api/v1/auth/login", () => {
     it("should return the expected response format without exposing the password", async () => {
       await insertTestUser(tenantId);
 
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,7 +118,7 @@ describe("POST /api/v1/auth/login", () => {
     it("should set the auth cookies", async () => {
       await insertTestUser(tenantId);
 
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -138,7 +138,7 @@ describe("POST /api/v1/auth/login", () => {
     it("should persist a refresh token for the logged-in user", async () => {
       const user = await insertTestUser(tenantId);
 
-      await app.request("/api/v1/auth/login", {
+      await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -161,7 +161,7 @@ describe("POST /api/v1/auth/login", () => {
 
   describe("Given invalid credentials", () => {
     it("should return 401 for an unknown email", async () => {
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -181,7 +181,7 @@ describe("POST /api/v1/auth/login", () => {
     it("should return 401 for a wrong password", async () => {
       await insertTestUser(tenantId);
 
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -201,7 +201,7 @@ describe("POST /api/v1/auth/login", () => {
     it("should return 401 for an inactive user account", async () => {
       await insertTestUser(tenantId, { isActive: false });
 
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -218,7 +218,7 @@ describe("POST /api/v1/auth/login", () => {
     });
 
     it("should return 400 when required fields are missing", async () => {
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -234,7 +234,7 @@ describe("POST /api/v1/auth/login", () => {
     });
 
     it("should return 400 when email is missing", async () => {
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -251,7 +251,7 @@ describe("POST /api/v1/auth/login", () => {
     });
 
     it("should return 400 when the request body is empty", async () => {
-      const response = await app.request("/api/v1/auth/login", {
+      const response = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

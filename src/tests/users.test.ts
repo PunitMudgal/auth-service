@@ -1610,7 +1610,7 @@ describe.serial("Users API", () => {
         body: JSON.stringify({ isActive: false }),
       });
 
-      const login = await app.request("/api/v1/auth/login", {
+      const login = await app.request("/api/v1/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1710,7 +1710,7 @@ describe.serial("Users API", () => {
         headers: adminHeaders,
       });
 
-      const login = await app.request("/api/v1/auth/login", {
+      const login = await app.request("/api/v1/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
