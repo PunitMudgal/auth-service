@@ -1,5 +1,5 @@
 import { and, count, desc, eq, ilike, isNull, ne, or } from "drizzle-orm";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 import { db } from "../db/connection";
 import { refreshTokens, tenants, users } from "../db/schema";
 import type { CreateUser, JWTPayload, UserRole } from "../types";

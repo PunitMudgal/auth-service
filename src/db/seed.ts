@@ -13,7 +13,7 @@
  * Usage:  bun run src/db/seed.ts
  */
 
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 import { inArray } from "drizzle-orm";
 import { db } from "./connection";
 import { tenants, users } from "./schema";

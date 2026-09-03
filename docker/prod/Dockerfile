@@ -6,8 +6,6 @@ FROM oven/bun:${BUN_VERSION}-alpine AS builder
 
 WORKDIR /home/bun/app
 
-RUN apk add --no-cache python3 make g++
-
 RUN --mount=type=bind,source=package.json,target=package.json \
     --mount=type=bind,source=bun.lock,target=bun.lock \
     --mount=type=cache,target=/root/.bun/install/cache \
@@ -25,14 +23,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN apk add --no-cache python3 make g++ \
-    && addgroup -S app \
+RUN addgroup -S app \
     && adduser -S -G app app
-
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=bun.lock,target=bun.lock \
-    --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile --production
 
 COPY --from=builder --chown=app:app /home/bun/app/dist ./dist
 

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { db } from "../db/connection";
 import { passwordResetTokens, refreshTokens, users } from "../db/schema";
 import type { LoginUser, RegisterUser, UserRole } from "../types";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 import {
   ConflictError,
   NotFoundError,
