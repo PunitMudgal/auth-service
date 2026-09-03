@@ -19,7 +19,9 @@ RUN NODE_ENV=production bun run build:docker
 
 FROM oven/bun:${BUN_VERSION}-alpine AS runner
 
-WORKDIR /home/bun/app
+# Keep the app outside /home: Azure App Service mounts persistent storage over
+# /home, which can hide files baked into the image under /home/bun/app.
+WORKDIR /app
 
 ENV NODE_ENV=production
 
@@ -38,4 +40,5 @@ USER app
 
 EXPOSE 3000
 
-CMD ["bun", "run", "dist/server.js"]
+# Absolute path so startup works even if the platform overrides the working directory.
+CMD ["bun", "run", "/app/dist/server.js"]
