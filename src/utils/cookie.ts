@@ -11,7 +11,7 @@ export function getBaseCookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: "Strict" as const,
+    sameSite: "None" as const,
     path: "/",
   };
 }
@@ -31,7 +31,6 @@ export function setAuthCookies(
   setCookie(c, "refresh_token", refreshToken, {
     ...base,
     maxAge: parseDurationToSeconds(Config.jwt.refreshExpiresIn),
-    path: "/api/v1/auth",
   });
 }
 
