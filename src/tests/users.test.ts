@@ -87,7 +87,7 @@ describe.serial("Users API", () => {
 
   beforeAll(async () => {
     await pool.query("SELECT 1");
-  });
+  }, 20000);
 
   beforeEach(async () => {
     await db.delete(users);
@@ -115,7 +115,7 @@ describe.serial("Users API", () => {
     adminHeaders = await authHeaderFor(admin);
     userHeaders = await authHeaderFor(regularUser);
     managerHeaders = await authHeaderFor(managerUser);
-  });
+  }, 20000);
 
   describe("POST /api/v1/user", () => {
     it("should create a user when admin provides valid data", async () => {

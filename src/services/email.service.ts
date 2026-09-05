@@ -52,6 +52,11 @@ interface SendEmailParams {
 }
 
 export async function sendEmail({ to, subject, html }: SendEmailParams) {
+  // Tests must never depend on (or trigger) real email delivery.
+  if (process.env.NODE_ENV === "test") {
+    return { success: true as const, id: undefined };
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: Config.email.fromEmail,
@@ -80,6 +85,11 @@ interface SendReactEmailParams {
 }
 
 async function sendReactEmail({ to, subject, react }: SendReactEmailParams) {
+  // Tests must never depend on (or trigger) real email delivery.
+  if (process.env.NODE_ENV === "test") {
+    return { success: true as const, id: undefined };
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: Config.email.fromEmail,
